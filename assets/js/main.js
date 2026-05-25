@@ -546,6 +546,188 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // 6. Employee Monthly Report Modal Fetch & Render
+    const employeeReportModalEl = document.getElementById('employeeReportModal');
+    if (employeeReportModalEl) {
+        const modalContent = document.getElementById('employeeReportModalContent');
+        const exportWrapper = document.getElementById('modalExportWrapper');
+
+        document.addEventListener('click', function(e) {
+            const trigger = e.target.closest('.employee-report-trigger');
+            if (trigger) {
+                e.preventDefault();
+
+                const employeeId = trigger.getAttribute('data-id');
+                const name = trigger.getAttribute('data-name');
+                const empId = trigger.getAttribute('data-emp-id');
+                const email = trigger.getAttribute('data-email');
+                const year = trigger.getAttribute('data-year');
+                const month = trigger.getAttribute('data-month');
+
+                if (!employeeId) return;
+
+                // Open the modal
+                const modal = bootstrap.Modal.getOrCreateInstance(employeeReportModalEl);
+                modal.show();
+
+                // Show loading state
+                modalContent.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Retrieving monthly performance data...</p>
+                    </div>
+                `;
+                exportWrapper.innerHTML = '';
+
+                // Fetch data via AJAX
+                const appRoot = getAppRootPath();
+                fetch(`${appRoot}admin/get_employee_monthly_report.php?id=${employeeId}&year=${year}&month=${month}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to load performance report');
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'Error fetching report');
+                        }
+
+                        const employee = data.employee;
+                        const timesheets = data.timesheets;
+
+                        // Calculate stats
+                        let totalHours = 0;
+                        const uniqueDates = new Set();
+                        timesheets.forEach(ts => {
+                            totalHours += ts.duration;
+                            uniqueDates.add(ts.date);
+                        });
+                        const daysLogged = uniqueDates.size;
+                        const avgHours = daysLogged > 0 ? (totalHours / daysLogged) : 0;
+
+                        // Format Month/Year nicely
+                        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                        const formattedMonth = monthNames[parseInt(month) - 1] + ' ' + year;
+
+                        // Dynamic Timesheet entries list
+                        let tableRowsHtml = '';
+                        if (timesheets.length === 0) {
+                            tableRowsHtml = `
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">No timesheet logs found for this month.</td>
+                                </tr>
+                            `;
+                        } else {
+                            timesheets.forEach(ts => {
+                                const statusBadgeClass = ts.status === 'approved' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
+                                tableRowsHtml += `
+                                    <tr>
+                                        <td class="fw-semibold" style="white-space: nowrap;">${ts.formatted_date}</td>
+                                        <td>
+                                            ${ts.task_title ? `<span class="text-primary fw-medium">${escapeHtml(ts.task_title)}</span>` : `<span class="text-muted italic">Manual Entry</span>`}
+                                        </td>
+                                        <td class="text-secondary small text-wrap">${escapeHtml(ts.description)}</td>
+                                        <td class="fw-bold">${ts.duration.toFixed(1)} hrs</td>
+                                        <td>
+                                            <span class="badge ${statusBadgeClass} text-capitalize">${ts.status}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // Populate Modal Content
+                        modalContent.innerHTML = `
+                            <div class="d-flex flex-column gap-4">
+                                <!-- Employee Metadata Block -->
+                                <div class="bg-light p-3 rounded border border-light-subtle">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Employee Name</div>
+                                            <h5 class="fw-bold mb-0 text-dark">${escapeHtml(employee.first_name + ' ' + employee.last_name)}</h5>
+                                        </div>
+                                        <div class="col-md-3 col-sm-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Employee ID</div>
+                                            <div class="fw-semibold"><code>${escapeHtml(employee.emp_id)}</code></div>
+                                        </div>
+                                        <div class="col-md-3 col-sm-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Designation</div>
+                                            <div class="fw-semibold text-capitalize">${escapeHtml(employee.role)}</div>
+                                        </div>
+                                        <div class="col-12 border-top pt-2 mt-2">
+                                            <div class="text-muted small fw-bold text-uppercase">Email Address</div>
+                                            <div class="fw-semibold">${escapeHtml(employee.email)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Summary Stats Cards -->
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="card border border-primary-subtle bg-primary bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-primary mb-0">${totalHours.toFixed(1)} hrs</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Total Worked</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border border-success-subtle bg-success bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-success mb-0">${daysLogged} days</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Days Logged</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border border-warning-subtle bg-warning bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-warning mb-0">${avgHours.toFixed(1)} hrs</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Daily Average</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Logs Breakdown List -->
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-1 text-primary"></i>Logged Daily Timesheets (${formattedMonth})</h6>
+                                    <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                                        <table class="table table-striped align-middle table-sm" style="font-size: 0.825rem;">
+                                            <thead class="table-dark sticky-top">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Task</th>
+                                                    <th>Description</th>
+                                                    <th>Hours</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${tableRowsHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Add CSV Exporter to Footer Button Wrapper
+                        exportWrapper.innerHTML = `
+                            <a href="${appRoot}admin/export_employee_monthly_csv.php?id=${employeeId}&year=${year}&month=${month}" 
+                               class="btn btn-success fw-medium">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export to CSV
+                            </a>
+                        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        modalContent.innerHTML = `
+                            <div class="alert alert-danger mb-0 py-3 text-center">
+                                <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                                <span>Failed to retrieve employee performance report. Please try again.</span>
+                            </div>
+                        `;
+                    });
+            }
+        });
+    }
+
     // Helper to escape HTML characters
     function escapeHtml(str) {
         if (!str) return '';

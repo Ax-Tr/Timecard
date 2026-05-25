@@ -20,10 +20,10 @@ try {
 
     // 5. Monthly statistics (Last 6 months)
     $monthly_stats_stmt = $pdo->query("
-        SELECT DATE_FORMAT(date, '%M %Y') as month_name, SUM(duration) as hours 
+        SELECT DATE_FORMAT(date, '%Y-%m') as month_key, DATE_FORMAT(date, '%M %Y') as month_name, SUM(duration) as hours 
         FROM timesheets 
-        GROUP BY DATE_FORMAT(date, '%Y-%m') 
-        ORDER BY date DESC 
+        GROUP BY DATE_FORMAT(date, '%Y-%m'), DATE_FORMAT(date, '%M %Y') 
+        ORDER BY month_key DESC 
         LIMIT 6
     ");
     $monthly_stats = $monthly_stats_stmt->fetchAll();

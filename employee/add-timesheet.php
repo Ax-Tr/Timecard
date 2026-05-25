@@ -294,7 +294,7 @@ require_once __DIR__ . '/../includes/header.php';
                                             <tr>
                                                 <td>
                                                     <?php if ($entry['task_title']): ?>
-                                                        <span class="text-truncate d-inline-block" style="max-width: 120px;" title="<?php echo e($entry['task_title']); ?>">
+                                                        <span class="fw-medium">
                                                             <i class="bi bi-tag-fill me-1 text-muted"></i><?php echo e($entry['task_title']); ?>
                                                         </span>
                                                     <?php else: ?>

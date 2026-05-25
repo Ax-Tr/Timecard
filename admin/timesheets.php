@@ -297,7 +297,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         <td><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></td>
                                         <td>
                                             <?php if ($row['task_title']): ?>
-                                                <span class="text-truncate d-inline-block" style="max-width: 150px;" title="<?php echo e($row['task_title']); ?>">
+                                                <span class="fw-medium">
                                                     <i class="bi bi-tag-fill me-1 text-muted"></i><?php echo e($row['task_title']); ?>
                                                 </span>
                                             <?php else: ?>

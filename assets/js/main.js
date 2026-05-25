@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let currentStatusFilter = '';
             const activeTab = document.querySelector('.nav-pills .nav-link.active');
             if (activeTab) {
-                currentStatusFilter = new URL(activeTab.href).searchParams.get('status') || 'pending';
+                currentStatusFilter = new URL(activeTab.href, window.location.href).searchParams.get('status') || 'pending';
             } else {
                 const statusSelect = document.querySelector('select[name="status"]');
                 if (statusSelect) {
@@ -544,7 +544,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(err => console.error('Error polling notifications:', err));
         }
-    }
     }
 
     // Helper to escape HTML characters

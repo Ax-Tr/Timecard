@@ -150,7 +150,7 @@ require_once __DIR__ . '/../includes/header.php';
                                         <td><span class="fw-medium"><?php echo e($log['date']); ?></span></td>
                                         <td>
                                             <?php if ($log['task_title']): ?>
-                                                <span class="text-truncate d-inline-block" style="max-width: 150px;" title="<?php echo e($log['task_title']); ?>">
+                                                <span class="fw-medium">
                                                     <i class="bi bi-tag-fill me-1 text-muted"></i><?php echo e($log['task_title']); ?>
                                                 </span>
                                             <?php else: ?>

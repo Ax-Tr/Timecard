@@ -58,20 +58,18 @@ if (is_logged_in()) {
             <!-- Notifications Dropdown -->
             <li class="nav-item dropdown me-2">
                 <button class="btn btn-link link-secondary p-1 position-relative" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" type="button">
-                    <i class="bi bi-bell-fill fs-5"></i>
-                    <?php if ($unread_count > 0): ?>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.65rem;">
-                            <?php echo $unread_count > 99 ? '99+' : $unread_count; ?>
-                        </span>
-                    <?php endif; ?>
+                    <i class="bi bi-bell-fill fs-5" id="notificationBellIcon"></i>
+                    <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light <?php echo $unread_count > 0 ? '' : 'd-none'; ?>" style="font-size: 0.65rem;">
+                        <?php echo $unread_count > 99 ? '99+' : $unread_count; ?>
+                    </span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-0 overflow-hidden" aria-labelledby="notificationsDropdown" style="width: 280px; font-size: 0.85rem;">
-                    <li class="dropdown-header bg-light py-2 text-dark font-weight-bold border-bottom">
+                    <li class="dropdown-header bg-light py-2 text-dark font-weight-bold border-bottom" id="notificationDropdownHeader">
                         Notifications (<?php echo $unread_count; ?> Unread)
                     </li>
-                    <div style="max-height: 250px; overflow-y: auto;">
+                    <div id="notificationDropdownList" style="max-height: 250px; overflow-y: auto;">
                         <?php if (empty($unread_notifications)): ?>
-                            <li class="text-muted text-center py-3">No new notifications</li>
+                            <li class="text-muted text-center py-3" id="noNotificationsLabel">No new notifications</li>
                         <?php else: ?>
                             <?php foreach ($unread_notifications as $noti): ?>
                                 <li>
@@ -83,13 +81,11 @@ if (is_logged_in()) {
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-                    <?php if ($unread_count > 0): ?>
-                        <li>
-                            <button class="dropdown-item text-center text-primary py-2 border-top" id="clearNotificationsBtn">
-                                Mark all as read
-                            </button>
-                        </li>
-                    <?php endif; ?>
+                    <li id="clearNotificationsWrapper" class="<?php echo $unread_count > 0 ? '' : 'd-none'; ?>">
+                        <button class="dropdown-item text-center text-primary py-2 border-top" id="clearNotificationsBtn">
+                            Mark all as read
+                        </button>
+                    </li>
                 </ul>
             </li>
 

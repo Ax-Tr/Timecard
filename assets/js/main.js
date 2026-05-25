@@ -1,6 +1,12 @@
 // Custom Application Scripts
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(tooltipTriggerEl => {
+        new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
     // 1. Sidebar Toggle Logic
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
@@ -94,6 +100,643 @@ document.addEventListener('DOMContentLoaded', function () {
             return parts.join('/') + '/';
         }
         return '/';
+    }
+
+    // 4. General Searchable Dropdown Initializer
+    const searchableDropdowns = document.querySelectorAll('.searchable-dropdown');
+    searchableDropdowns.forEach(dropdownEl => {
+        const searchInput = dropdownEl.querySelector('.dropdown-search-input');
+        const dropdownBtn = dropdownEl.querySelector('.dropdown-toggle');
+        const hiddenInput = dropdownEl.querySelector('.dropdown-hidden-input');
+        const optionsList = dropdownEl.querySelector('.dropdown-options-list');
+        const options = optionsList.querySelectorAll('.dropdown-item');
+
+        // Filter options as user types
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                options.forEach(opt => {
+                    const text = opt.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        opt.style.display = 'block';
+                    } else {
+                        opt.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Handle option click
+        options.forEach(opt => {
+            opt.addEventListener('click', function(e) {
+                e.preventDefault();
+                const val = this.getAttribute('data-value');
+                const text = this.textContent.trim();
+
+                // Set hidden value and button text
+                if (hiddenInput) hiddenInput.value = val;
+                if (dropdownBtn) {
+                    // Update button content, maintaining form-select layout
+                    dropdownBtn.innerHTML = text;
+                }
+
+                // Highlight active option
+                options.forEach(o => o.classList.remove('active'));
+                this.classList.add('active');
+
+                // Close dropdown
+                const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownBtn) || new bootstrap.Dropdown(dropdownBtn);
+                dropdownInstance.hide();
+            });
+        });
+
+        // Reset search query and focus when dropdown is shown
+        dropdownEl.addEventListener('shown.bs.dropdown', function() {
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+            options.forEach(opt => opt.style.display = 'block');
+        });
+    });
+
+    // 5. Timesheet & Task Details Modal Fetch & Render
+    const taskDetailsModalEl = document.getElementById('taskDetailsModal');
+    if (taskDetailsModalEl) {
+        const taskModalContent = document.getElementById('taskDetailsContent');
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.view-timesheet-btn');
+            if (btn) {
+                e.preventDefault();
+                const timesheetId = btn.getAttribute('data-timesheet-id');
+                if (!timesheetId) return;
+
+                // Open Modal
+                const modal = bootstrap.Modal.getOrCreateInstance(taskDetailsModalEl);
+                modal.show();
+
+                // Loading State
+                taskModalContent.innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                `;
+
+                // Fetch data
+                const appRoot = getAppRootPath();
+                fetch(appRoot + 'admin/get_timesheet_details.php?id=' + timesheetId)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Timesheet record not found');
+                        return response.json();
+                    })
+                    .then(data => {
+                        let taskHtml = '';
+                        if (data.task_id) {
+                            let priorityBadge = '';
+                            if (data.task_priority === 'high') {
+                                priorityBadge = '<span class="badge bg-danger-subtle text-danger">High</span>';
+                            } else if (data.task_priority === 'medium') {
+                                priorityBadge = '<span class="badge bg-warning-subtle text-warning">Medium</span>';
+                            } else {
+                                priorityBadge = '<span class="badge bg-info-subtle text-info">Low</span>';
+                            }
+
+                            let updatesHtml = '';
+                            if (data.update_details) {
+                                updatesHtml = `
+                                    <div class="mt-3 pt-2 border-top">
+                                        <div class="small text-muted mb-1 fw-semibold">COMPLETION FEEDBACK</div>
+                                        <div class="bg-body-secondary p-2 rounded small">
+                                            <div class="mb-1"><strong>Actual Duration:</strong> ${parseFloat(data.update_details.actual_duration).toFixed(1)} hrs</div>
+                                            <div><strong>Notes:</strong> ${data.update_details.notes ? escapeHtml(data.update_details.notes) : 'No notes provided.'}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            taskHtml = `
+                                <div class="card bg-light border-0 mt-3">
+                                    <div class="card-body p-3">
+                                        <h6 class="fw-bold mb-2 text-primary d-flex align-items-center"><i class="bi bi-tag-fill me-1"></i>Associated Task Details</h6>
+                                        <div class="fw-semibold small mb-1">${escapeHtml(data.task_title)}</div>
+                                        <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                                            ${priorityBadge}
+                                            <span class="text-muted small"><i class="bi bi-calendar-event me-1"></i>Deadline: ${escapeHtml(data.task_deadline)}</span>
+                                            <span class="text-muted small"><i class="bi bi-clock me-1"></i>Est. Hours: ${parseFloat(data.task_estimated_duration).toFixed(1)} hrs</span>
+                                        </div>
+                                        <div class="text-body-secondary small mb-2" style="white-space: pre-line;">${data.task_description ? escapeHtml(data.task_description) : 'No task description.'}</div>
+                                        ${updatesHtml}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            taskHtml = `
+                                <div class="card bg-light border-0 mt-3">
+                                    <div class="card-body p-3 text-muted small d-flex align-items-center">
+                                        <i class="bi bi-info-circle me-2 fs-5"></i>Associated Task: None (Manual Entry)
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        taskModalContent.innerHTML = `
+                            <div class="d-flex flex-column gap-3">
+                                <!-- Employee & Work Info -->
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                        <div>
+                                            <h5 class="fw-bold mb-0 text-dark">${escapeHtml(data.employee_name)}</h5>
+                                            <div class="text-muted small mt-1">
+                                                <span class="me-3"><i class="bi bi-person-badge me-1"></i>ID: <code>${escapeHtml(data.emp_id)}</code></span>
+                                                <span><i class="bi bi-calendar-check me-1"></i>Date: ${escapeHtml(data.work_date)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-primary text-white fs-6 py-2 px-3">${parseFloat(data.work_duration).toFixed(1)} hrs</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Work Details -->
+                                <div class="border-top pt-3">
+                                    <h6 class="fw-semibold text-secondary mb-2"><i class="bi bi-pencil-square me-1"></i>Work Details</h6>
+                                    <p class="text-body-secondary mb-0 small" style="white-space: pre-line; line-height: 1.5;">${escapeHtml(data.work_details)}</p>
+                                </div>
+
+                                <!-- Task Info -->
+                                ${taskHtml}
+                            </div>
+                        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        taskModalContent.innerHTML = `
+                            <div class="alert alert-danger mb-0 py-2 small text-center">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Failed to load timesheet details.
+                            </div>
+                        `;
+                    });
+            }
+        });
+    }
+
+    // === KANBAN BOARD CONTROLLER ===
+    const listViewBtn = document.getElementById('listViewBtn');
+    const kanbanViewBtn = document.getElementById('kanbanViewBtn');
+    const listViewContainer = document.getElementById('listViewContainer');
+    const kanbanViewContainer = document.getElementById('kanbanViewContainer');
+
+    if (listViewBtn && kanbanViewBtn && listViewContainer && kanbanViewContainer) {
+        const taskCards = Array.from(document.querySelectorAll('.task-card-wrapper'));
+        const pendingContainer = document.querySelector('#col-pending .kanban-cards-container');
+        const completedContainer = document.querySelector('#col-completed .kanban-cards-container');
+        const pendingCountBadge = document.getElementById('count-pending');
+        const completedCountBadge = document.getElementById('count-completed');
+
+        // Check if there is a saved view preference in localStorage
+        const savedView = localStorage.getItem('tasks_view_preference') || 'list';
+        if (savedView === 'kanban') {
+            switchToKanbanView();
+        }
+
+        listViewBtn.addEventListener('click', () => {
+            switchToListView();
+        });
+
+        kanbanViewBtn.addEventListener('click', () => {
+            switchToKanbanView();
+        });
+
+        function switchToListView() {
+            listViewBtn.classList.add('active');
+            kanbanViewBtn.classList.remove('active');
+            kanbanViewContainer.classList.add('d-none');
+            listViewContainer.classList.remove('d-none');
+            localStorage.setItem('tasks_view_preference', 'list');
+
+            // Find current status filter
+            let currentStatusFilter = '';
+            const activeTab = document.querySelector('.nav-pills .nav-link.active');
+            if (activeTab) {
+                currentStatusFilter = new URL(activeTab.href, window.location.href).searchParams.get('status') || 'pending';
+            } else {
+                const statusSelect = document.querySelector('select[name="status"]');
+                if (statusSelect) {
+                    currentStatusFilter = statusSelect.value;
+                }
+            }
+
+            // Move all cards back to the list container
+            taskCards.forEach(card => {
+                card.className = 'col-12 col-md-6 col-lg-4 task-card-wrapper';
+                const status = card.getAttribute('data-status');
+                if (currentStatusFilter && status !== currentStatusFilter) {
+                    card.classList.add('d-none');
+                } else {
+                    card.classList.remove('d-none');
+                }
+                listViewContainer.appendChild(card);
+            });
+        }
+
+        function switchToKanbanView() {
+            listViewBtn.classList.remove('active');
+            kanbanViewBtn.classList.add('active');
+            listViewContainer.classList.add('d-none');
+            kanbanViewContainer.classList.remove('d-none');
+            localStorage.setItem('tasks_view_preference', 'kanban');
+
+            let pendingCount = 0;
+            let completedCount = 0;
+
+            taskCards.forEach(card => {
+                card.className = 'kanban-card task-card-wrapper';
+                card.classList.remove('d-none');
+
+                const status = card.getAttribute('data-status');
+                if (status === 'completed') {
+                    if (completedContainer) {
+                        completedContainer.appendChild(card);
+                        completedCount++;
+                    }
+                } else {
+                    if (pendingContainer) {
+                        pendingContainer.appendChild(card);
+                        pendingCount++;
+                        
+                        // Enable draggable for pending cards
+                        card.setAttribute('draggable', 'true');
+                    }
+                }
+            });
+
+            if (pendingCountBadge) pendingCountBadge.innerText = pendingCount;
+            if (completedCountBadge) completedCountBadge.innerText = completedCount;
+        }
+
+        // --- Drag and Drop implementation ---
+        const columns = document.querySelectorAll('.kanban-col');
+
+        taskCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                columns.forEach(col => col.classList.remove('drag-over'));
+            });
+        });
+
+        columns.forEach(col => {
+            col.addEventListener('dragover', (e) => {
+                const draggingCard = document.querySelector('.kanban-card.dragging');
+                if (draggingCard) {
+                    const fromStatus = draggingCard.getAttribute('data-status');
+                    const toStatus = col.querySelector('.kanban-cards-container').getAttribute('data-status');
+                    
+                    // We only allow dragging from Pending to Completed
+                    if (fromStatus === 'pending' && toStatus === 'completed') {
+                        e.preventDefault();
+                        col.classList.add('drag-over');
+                    }
+                }
+            });
+
+            col.addEventListener('dragleave', () => {
+                col.classList.remove('drag-over');
+            });
+
+            col.addEventListener('drop', (e) => {
+                e.preventDefault();
+                col.classList.remove('drag-over');
+                
+                const taskId = e.dataTransfer.getData('text/plain');
+                const draggingCard = document.querySelector(`.kanban-card[data-id="${taskId}"]`);
+                
+                if (draggingCard) {
+                    const toStatus = col.querySelector('.kanban-cards-container').getAttribute('data-status');
+                    if (toStatus === 'completed') {
+                        // Find the Mark as Completed button inside this card and click it
+                        const markBtn = draggingCard.querySelector('button[data-bs-target="#completeTaskModal"]');
+                        if (markBtn) {
+                            markBtn.click();
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    // === NOTIFICATIONS REAL-TIME POLLER ===
+    const notificationBellIcon = document.getElementById('notificationBellIcon');
+    const notificationBadge = document.getElementById('notificationBadge');
+    const notificationDropdownHeader = document.getElementById('notificationDropdownHeader');
+    const notificationDropdownList = document.getElementById('notificationDropdownList');
+    const clearNotificationsWrapper = document.getElementById('clearNotificationsWrapper');
+
+    if (notificationBellIcon) {
+        let lastCount = parseInt(notificationBadge ? notificationBadge.textContent.trim() : '0') || 0;
+
+        // Poll notifications every 5 seconds
+        setInterval(pollNotifications, 5000);
+
+        function pollNotifications() {
+            const appRoot = getAppRootPath();
+            fetch(appRoot + 'includes/get_notifications.php')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const newCount = data.unread_count;
+                        
+                        // Update badge
+                        if (notificationBadge) {
+                            notificationBadge.textContent = newCount > 99 ? '99+' : newCount;
+                            if (newCount > 0) {
+                                notificationBadge.classList.remove('d-none');
+                            } else {
+                                notificationBadge.classList.add('d-none');
+                            }
+                        }
+
+                        // Update header
+                        if (notificationDropdownHeader) {
+                            notificationDropdownHeader.textContent = `Notifications (${newCount} Unread)`;
+                        }
+
+                        // Update mark all as read visibility
+                        if (clearNotificationsWrapper) {
+                            if (newCount > 0) {
+                                clearNotificationsWrapper.classList.remove('d-none');
+                            } else {
+                                clearNotificationsWrapper.classList.add('d-none');
+                            }
+                        }
+
+                        // Check if we received new notifications
+                        if (newCount > lastCount) {
+                            // Ring the bell!
+                            notificationBellIcon.classList.add('bell-ring-active');
+                            // Remove class after animation ends to allow playing it again later
+                            setTimeout(() => {
+                                notificationBellIcon.classList.remove('bell-ring-active');
+                            }, 800);
+
+                            // Prepend new notifications to list & show toaster
+                            if (notificationDropdownList) {
+                                const newNotifications = data.notifications.slice(0, newCount - lastCount);
+                                
+                                // Show toaster alert for the latest notification
+                                if (newNotifications.length > 0) {
+                                    showToast(newNotifications[0].message, 'info');
+                                }
+
+                                // Clear empty state label
+                                const noNotiLabel = document.getElementById('noNotificationsLabel');
+                                if (noNotiLabel) {
+                                    noNotiLabel.remove();
+                                }
+
+                                // Re-render the notification items dynamically
+                                let html = '';
+                                data.notifications.forEach(noti => {
+                                    html += `
+                                        <li>
+                                            <a class="dropdown-item py-2 px-3 border-bottom d-flex flex-column text-wrap" href="#">
+                                                <span>${escapeHtml(noti.message)}</span>
+                                                <small class="text-muted mt-1" style="font-size: 0.75rem;">${noti.formatted_time}</small>
+                                            </a>
+                                        </li>
+                                    `;
+                                });
+                                notificationDropdownList.innerHTML = html;
+                            }
+                        } else if (newCount < lastCount) {
+                            // Count went down (e.g. cleared elsewhere), re-render list
+                            if (newCount === 0) {
+                                if (notificationDropdownList) {
+                                    notificationDropdownList.innerHTML = '<li class="text-muted text-center py-3" id="noNotificationsLabel">No new notifications</li>';
+                                }
+                            } else {
+                                if (notificationDropdownList) {
+                                    let html = '';
+                                    data.notifications.forEach(noti => {
+                                        html += `
+                                            <li>
+                                                <a class="dropdown-item py-2 px-3 border-bottom d-flex flex-column text-wrap" href="#">
+                                                    <span>${escapeHtml(noti.message)}</span>
+                                                    <small class="text-muted mt-1" style="font-size: 0.75rem;">${noti.formatted_time}</small>
+                                                </a>
+                                            </li>
+                                        `;
+                                    });
+                                    notificationDropdownList.innerHTML = html;
+                                }
+                            }
+                        }
+
+                        lastCount = newCount;
+                    }
+                })
+                .catch(err => console.error('Error polling notifications:', err));
+        }
+    }
+
+    // 6. Employee Monthly Report Modal Fetch & Render
+    const employeeReportModalEl = document.getElementById('employeeReportModal');
+    if (employeeReportModalEl) {
+        const modalContent = document.getElementById('employeeReportModalContent');
+        const exportWrapper = document.getElementById('modalExportWrapper');
+
+        document.addEventListener('click', function(e) {
+            const trigger = e.target.closest('.employee-report-trigger');
+            if (trigger) {
+                e.preventDefault();
+
+                const employeeId = trigger.getAttribute('data-id');
+                const name = trigger.getAttribute('data-name');
+                const empId = trigger.getAttribute('data-emp-id');
+                const email = trigger.getAttribute('data-email');
+                const year = trigger.getAttribute('data-year');
+                const month = trigger.getAttribute('data-month');
+
+                if (!employeeId) return;
+
+                // Open the modal
+                const modal = bootstrap.Modal.getOrCreateInstance(employeeReportModalEl);
+                modal.show();
+
+                // Show loading state
+                modalContent.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Retrieving monthly performance data...</p>
+                    </div>
+                `;
+                exportWrapper.innerHTML = '';
+
+                // Fetch data via AJAX
+                const appRoot = getAppRootPath();
+                fetch(`${appRoot}admin/get_employee_monthly_report.php?id=${employeeId}&year=${year}&month=${month}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to load performance report');
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.message || 'Error fetching report');
+                        }
+
+                        const employee = data.employee;
+                        const timesheets = data.timesheets;
+
+                        // Calculate stats
+                        let totalHours = 0;
+                        const uniqueDates = new Set();
+                        timesheets.forEach(ts => {
+                            totalHours += ts.duration;
+                            uniqueDates.add(ts.date);
+                        });
+                        const daysLogged = uniqueDates.size;
+                        const avgHours = daysLogged > 0 ? (totalHours / daysLogged) : 0;
+
+                        // Format Month/Year nicely
+                        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                        const formattedMonth = monthNames[parseInt(month) - 1] + ' ' + year;
+
+                        // Dynamic Timesheet entries list
+                        let tableRowsHtml = '';
+                        if (timesheets.length === 0) {
+                            tableRowsHtml = `
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">No timesheet logs found for this month.</td>
+                                </tr>
+                            `;
+                        } else {
+                            timesheets.forEach(ts => {
+                                const statusBadgeClass = ts.status === 'approved' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
+                                tableRowsHtml += `
+                                    <tr>
+                                        <td class="fw-semibold" style="white-space: nowrap;">${ts.formatted_date}</td>
+                                        <td>
+                                            ${ts.task_title ? `<span class="text-primary fw-medium">${escapeHtml(ts.task_title)}</span>` : `<span class="text-muted italic">Manual Entry</span>`}
+                                        </td>
+                                        <td class="text-secondary small text-wrap">${escapeHtml(ts.description)}</td>
+                                        <td class="fw-bold">${ts.duration.toFixed(1)} hrs</td>
+                                        <td>
+                                            <span class="badge ${statusBadgeClass} text-capitalize">${ts.status}</span>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // Populate Modal Content
+                        modalContent.innerHTML = `
+                            <div class="d-flex flex-column gap-4">
+                                <!-- Employee Metadata Block -->
+                                <div class="bg-light p-3 rounded border border-light-subtle">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Employee Name</div>
+                                            <h5 class="fw-bold mb-0 text-dark">${escapeHtml(employee.first_name + ' ' + employee.last_name)}</h5>
+                                        </div>
+                                        <div class="col-md-3 col-sm-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Employee ID</div>
+                                            <div class="fw-semibold"><code>${escapeHtml(employee.emp_id)}</code></div>
+                                        </div>
+                                        <div class="col-md-3 col-sm-6">
+                                            <div class="text-muted small fw-bold text-uppercase">Designation</div>
+                                            <div class="fw-semibold text-capitalize">${escapeHtml(employee.role)}</div>
+                                        </div>
+                                        <div class="col-12 border-top pt-2 mt-2">
+                                            <div class="text-muted small fw-bold text-uppercase">Email Address</div>
+                                            <div class="fw-semibold">${escapeHtml(employee.email)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Summary Stats Cards -->
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="card border border-primary-subtle bg-primary bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-primary mb-0">${totalHours.toFixed(1)} hrs</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Total Worked</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border border-success-subtle bg-success bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-success mb-0">${daysLogged} days</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Days Logged</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border border-warning-subtle bg-warning bg-opacity-10 text-center py-3">
+                                            <h3 class="fw-bold text-warning mb-0">${avgHours.toFixed(1)} hrs</h3>
+                                            <small class="text-muted fw-semibold uppercase small mt-1">Daily Average</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Logs Breakdown List -->
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-1 text-primary"></i>Logged Daily Timesheets (${formattedMonth})</h6>
+                                    <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                                        <table class="table table-striped align-middle table-sm" style="font-size: 0.825rem;">
+                                            <thead class="table-dark sticky-top">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Task</th>
+                                                    <th>Description</th>
+                                                    <th>Hours</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${tableRowsHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Add CSV Exporter to Footer Button Wrapper
+                        exportWrapper.innerHTML = `
+                            <a href="${appRoot}admin/export_employee_monthly_csv.php?id=${employeeId}&year=${year}&month=${month}" 
+                               class="btn btn-success fw-medium">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export to CSV
+                            </a>
+                        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        modalContent.innerHTML = `
+                            <div class="alert alert-danger mb-0 py-3 text-center">
+                                <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                                <span>Failed to retrieve employee performance report. Please try again.</span>
+                            </div>
+                        `;
+                    });
+            }
+        });
+    }
+
+    // Helper to escape HTML characters
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 });
 

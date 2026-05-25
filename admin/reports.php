@@ -29,7 +29,7 @@ try {
 
     // 2. Fetch Employee-wise summary table for the selected Month/Year
     $summary_stmt = $pdo->prepare("
-        SELECT e.emp_id, e.first_name, e.last_name, e.email, 
+        SELECT e.id, e.emp_id, e.first_name, e.last_name, e.email, 
                COALESCE(SUM(t.duration), 0) as total_hours,
                COUNT(DISTINCT t.id) as days_logged
         FROM employees e
@@ -157,12 +157,11 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
-                        <thead class="table-light">
+                     <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                         <thead class="table-light">
                             <tr>
                                 <th>Emp ID</th>
                                 <th>Name</th>
-                                <th>Email</th>
                                 <th>Days Logged</th>
                                 <th>Total Logged Hours</th>
                                 <th>Avg Hours/Day</th>
@@ -171,14 +170,24 @@ require_once __DIR__ . '/../includes/header.php';
                         <tbody>
                             <?php if (empty($employee_summary)): ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No active employees to display.</td>
+                                    <td colspan="5" class="text-center py-4 text-muted">No active employees to display.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($employee_summary as $row): ?>
                                     <tr>
                                         <td><code><?php echo e($row['emp_id']); ?></code></td>
-                                        <td><span class="fw-semibold"><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></span></td>
-                                        <td><?php echo e($row['email']); ?></td>
+                                        <td>
+                                            <span class="employee-report-trigger text-primary fw-semibold cursor-pointer" 
+                                                  data-id="<?php echo $row['id']; ?>"
+                                                  data-name="<?php echo e($row['first_name'] . ' ' . $row['last_name']); ?>"
+                                                  data-emp-id="<?php echo e($row['emp_id']); ?>"
+                                                  data-email="<?php echo e($row['email']); ?>"
+                                                  data-year="<?php echo $year; ?>"
+                                                  data-month="<?php echo $month; ?>"
+                                                  style="cursor: pointer; text-decoration: none;">
+                                                <?php echo e($row['first_name'] . ' ' . $row['last_name']); ?>
+                                            </span>
+                                        </td>
                                         <td><?php echo $row['days_logged']; ?> days</td>
                                         <td>
                                             <span class="badge bg-primary-subtle text-primary fs-6">
@@ -199,6 +208,27 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Monthly Performance Modal -->
+    <div class="modal fade" id="employeeReportModal" tabindex="-1" aria-labelledby="employeeReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold" id="employeeReportModalLabel">
+                        <i class="bi bi-person-workspace me-2"></i>Employee Monthly Performance
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" id="employeeReportModalContent">
+                    <!-- Content populated dynamically -->
+                </div>
+                <div class="modal-footer bg-light py-3 border-top d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <div id="modalExportWrapper"></div>
                 </div>
             </div>
         </div>

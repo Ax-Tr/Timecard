@@ -81,6 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $stmt->execute([$user_id, $task_id, $date, $duration, $description, $status]);
 
                             log_activity($user_id, "Logged {$duration} hours for date {$date}");
+                            
+                            if ($status === 'pending') {
+                                $emp_stmt = $pdo->prepare("SELECT first_name, last_name FROM employees WHERE id = ?");
+                                $emp_stmt->execute([$user_id]);
+                                $emp = $emp_stmt->fetch();
+                                $emp_name = $emp ? trim($emp['first_name'] . ' ' . $emp['last_name']) : 'An employee';
+                                add_notification(null, "New timesheet submitted by {$emp_name} for approval.");
+                            }
+
                             $success = 'Timesheet logged successfully!';
                             
                             // Clear form values
@@ -131,6 +140,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $update_stmt->execute([$duration, $description, $timesheet_id]);
 
                             log_activity($user_id, "Updated timesheet entry ID {$timesheet_id}");
+                            
+                            if ($require_approval) {
+                                $emp_stmt = $pdo->prepare("SELECT first_name, last_name FROM employees WHERE id = ?");
+                                $emp_stmt->execute([$user_id]);
+                                $emp = $emp_stmt->fetch();
+                                $emp_name = $emp ? trim($emp['first_name'] . ' ' . $emp['last_name']) : 'An employee';
+                                add_notification(null, "New timesheet submitted by {$emp_name} for approval.");
+                            }
+
                             $success = 'Timesheet entry updated successfully!';
                         }
                     }
@@ -294,7 +312,7 @@ require_once __DIR__ . '/../includes/header.php';
                                             <tr>
                                                 <td>
                                                     <?php if ($entry['task_title']): ?>
-                                                        <span class="text-truncate d-inline-block" style="max-width: 120px;" title="<?php echo e($entry['task_title']); ?>">
+                                                        <span class="fw-medium">
                                                             <i class="bi bi-tag-fill me-1 text-muted"></i><?php echo e($entry['task_title']); ?>
                                                         </span>
                                                     <?php else: ?>

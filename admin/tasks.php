@@ -178,14 +178,34 @@ require_once __DIR__ . '/../includes/header.php';
                 <form action="" method="GET" class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold">Employee</label>
-                        <select class="form-select" name="employee_id">
-                            <option value="0">All Employees</option>
-                            <?php foreach ($employees_list as $emp): ?>
-                                <option value="<?php echo $emp['user_id']; ?>" <?php echo $emp_filter == $emp['user_id'] ? 'selected' : ''; ?>>
-                                    [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="dropdown searchable-dropdown w-100">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start form-select" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="employeeDropdownBtn">
+                                <?php 
+                                    $selected_label = 'All Employees';
+                                    if ($emp_filter > 0) {
+                                        foreach ($employees_list as $emp) {
+                                            if ($emp['user_id'] == $emp_filter) {
+                                                $selected_label = '[' . $emp['emp_id'] . '] ' . $emp['first_name'] . ' ' . $emp['last_name'];
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    echo e($selected_label);
+                                ?>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control mb-2 dropdown-search-input" placeholder="Type to search..." autocomplete="off">
+                                <div class="dropdown-options-list">
+                                    <button type="button" class="dropdown-item text-start<?php echo $emp_filter == 0 ? ' active' : ''; ?>" data-value="0">All Employees</button>
+                                    <?php foreach ($employees_list as $emp): ?>
+                                        <button type="button" class="dropdown-item text-start<?php echo $emp_filter == $emp['user_id'] ? ' active' : ''; ?>" data-value="<?php echo $emp['user_id']; ?>">
+                                            [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <input type="hidden" name="employee_id" class="dropdown-hidden-input" value="<?php echo (int)$emp_filter; ?>">
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small fw-semibold">Status</label>
@@ -212,8 +232,21 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- View Toggle Buttons -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div></div>
+            <div class="btn-group" role="group" aria-label="Tasks view toggle">
+                <button type="button" class="btn btn-outline-primary btn-sm active" id="listViewBtn">
+                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> List View
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="kanbanViewBtn">
+                    <i class="bi bi-kanban me-1"></i> Kanban Board
+                </button>
+            </div>
+        </div>
+
         <!-- Tasks list -->
-        <div class="row g-3">
+        <div id="listViewContainer" class="row g-3">
             <?php if (empty($tasks)): ?>
                 <div class="col-12">
                     <div class="card p-5 text-center text-muted">
@@ -223,7 +256,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             <?php else: ?>
                 <?php foreach ($tasks as $task): ?>
-                    <div class="col-12 col-md-6 col-lg-4">
+                    <div class="col-12 col-md-6 col-lg-4 task-card-wrapper" data-id="<?php echo $task['id']; ?>" data-status="<?php echo e($task['status']); ?>">
                         <div class="card h-100 d-flex flex-column justify-content-between hover-lift">
                             <div class="card-body">
                                 <!-- Top status + priority header -->
@@ -293,6 +326,29 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+        </div>
+
+        <!-- Kanban View Container -->
+        <div id="kanbanViewContainer" class="d-none mb-4">
+            <div class="kanban-board">
+                <!-- Pending Column -->
+                <div class="kanban-col" id="col-pending">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h6 class="fw-bold text-secondary mb-0">PENDING TASKS</h6>
+                        <span class="badge bg-secondary rounded-pill" id="count-pending">0</span>
+                    </div>
+                    <div class="kanban-cards-container" data-status="pending"></div>
+                </div>
+
+                <!-- Completed Column -->
+                <div class="kanban-col" id="col-completed">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h6 class="fw-bold text-success mb-0">COMPLETED TASKS</h6>
+                        <span class="badge bg-success rounded-pill" id="count-completed">0</span>
+                    </div>
+                    <div class="kanban-cards-container" data-status="completed"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Pagination -->

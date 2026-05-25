@@ -95,6 +95,198 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return '/';
     }
+
+    // 4. General Searchable Dropdown Initializer
+    const searchableDropdowns = document.querySelectorAll('.searchable-dropdown');
+    searchableDropdowns.forEach(dropdownEl => {
+        const searchInput = dropdownEl.querySelector('.dropdown-search-input');
+        const dropdownBtn = dropdownEl.querySelector('.dropdown-toggle');
+        const hiddenInput = dropdownEl.querySelector('.dropdown-hidden-input');
+        const optionsList = dropdownEl.querySelector('.dropdown-options-list');
+        const options = optionsList.querySelectorAll('.dropdown-item');
+
+        // Filter options as user types
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                options.forEach(opt => {
+                    const text = opt.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        opt.style.display = 'block';
+                    } else {
+                        opt.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Handle option click
+        options.forEach(opt => {
+            opt.addEventListener('click', function(e) {
+                e.preventDefault();
+                const val = this.getAttribute('data-value');
+                const text = this.textContent.trim();
+
+                // Set hidden value and button text
+                if (hiddenInput) hiddenInput.value = val;
+                if (dropdownBtn) {
+                    // Update button content, maintaining form-select layout
+                    dropdownBtn.innerHTML = text;
+                }
+
+                // Highlight active option
+                options.forEach(o => o.classList.remove('active'));
+                this.classList.add('active');
+
+                // Close dropdown
+                const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownBtn) || new bootstrap.Dropdown(dropdownBtn);
+                dropdownInstance.hide();
+            });
+        });
+
+        // Reset search query and focus when dropdown is shown
+        dropdownEl.addEventListener('shown.bs.dropdown', function() {
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+            options.forEach(opt => opt.style.display = 'block');
+        });
+    });
+
+    // 5. Timesheet & Task Details Modal Fetch & Render
+    const taskDetailsModalEl = document.getElementById('taskDetailsModal');
+    if (taskDetailsModalEl) {
+        const taskModalContent = document.getElementById('taskDetailsContent');
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.view-timesheet-btn');
+            if (btn) {
+                e.preventDefault();
+                const timesheetId = btn.getAttribute('data-timesheet-id');
+                if (!timesheetId) return;
+
+                // Open Modal
+                const modal = bootstrap.Modal.getOrCreateInstance(taskDetailsModalEl);
+                modal.show();
+
+                // Loading State
+                taskModalContent.innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                `;
+
+                // Fetch data
+                const appRoot = getAppRootPath();
+                fetch(appRoot + 'admin/get_timesheet_details.php?id=' + timesheetId)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Timesheet record not found');
+                        return response.json();
+                    })
+                    .then(data => {
+                        let taskHtml = '';
+                        if (data.task_id) {
+                            let priorityBadge = '';
+                            if (data.task_priority === 'high') {
+                                priorityBadge = '<span class="badge bg-danger-subtle text-danger">High</span>';
+                            } else if (data.task_priority === 'medium') {
+                                priorityBadge = '<span class="badge bg-warning-subtle text-warning">Medium</span>';
+                            } else {
+                                priorityBadge = '<span class="badge bg-info-subtle text-info">Low</span>';
+                            }
+
+                            let updatesHtml = '';
+                            if (data.update_details) {
+                                updatesHtml = `
+                                    <div class="mt-3 pt-2 border-top">
+                                        <div class="small text-muted mb-1 fw-semibold">COMPLETION FEEDBACK</div>
+                                        <div class="bg-body-secondary p-2 rounded small">
+                                            <div class="mb-1"><strong>Actual Duration:</strong> ${parseFloat(data.update_details.actual_duration).toFixed(1)} hrs</div>
+                                            <div><strong>Notes:</strong> ${data.update_details.notes ? escapeHtml(data.update_details.notes) : 'No notes provided.'}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            taskHtml = `
+                                <div class="card bg-light border-0 mt-3">
+                                    <div class="card-body p-3">
+                                        <h6 class="fw-bold mb-2 text-primary d-flex align-items-center"><i class="bi bi-tag-fill me-1"></i>Associated Task Details</h6>
+                                        <div class="fw-semibold small mb-1">${escapeHtml(data.task_title)}</div>
+                                        <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                                            ${priorityBadge}
+                                            <span class="text-muted small"><i class="bi bi-calendar-event me-1"></i>Deadline: ${escapeHtml(data.task_deadline)}</span>
+                                            <span class="text-muted small"><i class="bi bi-clock me-1"></i>Est. Hours: ${parseFloat(data.task_estimated_duration).toFixed(1)} hrs</span>
+                                        </div>
+                                        <div class="text-body-secondary small mb-2" style="white-space: pre-line;">${data.task_description ? escapeHtml(data.task_description) : 'No task description.'}</div>
+                                        ${updatesHtml}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            taskHtml = `
+                                <div class="card bg-light border-0 mt-3">
+                                    <div class="card-body p-3 text-muted small d-flex align-items-center">
+                                        <i class="bi bi-info-circle me-2 fs-5"></i>Associated Task: None (Manual Entry)
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        taskModalContent.innerHTML = `
+                            <div class="d-flex flex-column gap-3">
+                                <!-- Employee & Work Info -->
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                        <div>
+                                            <h5 class="fw-bold mb-0 text-dark">${escapeHtml(data.employee_name)}</h5>
+                                            <div class="text-muted small mt-1">
+                                                <span class="me-3"><i class="bi bi-person-badge me-1"></i>ID: <code>${escapeHtml(data.emp_id)}</code></span>
+                                                <span><i class="bi bi-calendar-check me-1"></i>Date: ${escapeHtml(data.work_date)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-primary text-white fs-6 py-2 px-3">${parseFloat(data.work_duration).toFixed(1)} hrs</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Work Details -->
+                                <div class="border-top pt-3">
+                                    <h6 class="fw-semibold text-secondary mb-2"><i class="bi bi-pencil-square me-1"></i>Work Details</h6>
+                                    <p class="text-body-secondary mb-0 small" style="white-space: pre-line; line-height: 1.5;">${escapeHtml(data.work_details)}</p>
+                                </div>
+
+                                <!-- Task Info -->
+                                ${taskHtml}
+                            </div>
+                        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        taskModalContent.innerHTML = `
+                            <div class="alert alert-danger mb-0 py-2 small text-center">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Failed to load timesheet details.
+                            </div>
+                        `;
+                    });
+            }
+        });
+    }
+
+    // Helper to escape HTML characters
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 });
 
 // Toast notification helper

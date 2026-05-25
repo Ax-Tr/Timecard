@@ -178,14 +178,34 @@ require_once __DIR__ . '/../includes/header.php';
                 <form action="" method="GET" class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold">Employee</label>
-                        <select class="form-select" name="employee_id">
-                            <option value="0">All Employees</option>
-                            <?php foreach ($employees_list as $emp): ?>
-                                <option value="<?php echo $emp['user_id']; ?>" <?php echo $emp_filter == $emp['user_id'] ? 'selected' : ''; ?>>
-                                    [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="dropdown searchable-dropdown w-100">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start form-select" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="employeeDropdownBtn">
+                                <?php 
+                                    $selected_label = 'All Employees';
+                                    if ($emp_filter > 0) {
+                                        foreach ($employees_list as $emp) {
+                                            if ($emp['user_id'] == $emp_filter) {
+                                                $selected_label = '[' . $emp['emp_id'] . '] ' . $emp['first_name'] . ' ' . $emp['last_name'];
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    echo e($selected_label);
+                                ?>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control mb-2 dropdown-search-input" placeholder="Type to search..." autocomplete="off">
+                                <div class="dropdown-options-list">
+                                    <button type="button" class="dropdown-item text-start<?php echo $emp_filter == 0 ? ' active' : ''; ?>" data-value="0">All Employees</button>
+                                    <?php foreach ($employees_list as $emp): ?>
+                                        <button type="button" class="dropdown-item text-start<?php echo $emp_filter == $emp['user_id'] ? ' active' : ''; ?>" data-value="<?php echo $emp['user_id']; ?>">
+                                            [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <input type="hidden" name="employee_id" class="dropdown-hidden-input" value="<?php echo (int)$emp_filter; ?>">
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small fw-semibold">Status</label>

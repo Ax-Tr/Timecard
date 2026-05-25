@@ -200,20 +200,40 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Filters Form -->
         <div class="card mb-4">
             <div class="card-body">
-                <form action="" method="GET" class="row g-3">
-                    <div class="col-md-3">
+                <form action="" method="GET" class="d-flex flex-wrap gap-3 align-items-end">
+                    <div style="flex: 1 1 200px; max-width: 280px;">
                         <label class="form-label small fw-semibold">Employee</label>
-                        <select class="form-select" name="employee_id">
-                            <option value="0">All Employees</option>
-                            <?php foreach ($employees_list as $emp): ?>
-                                <option value="<?php echo $emp['user_id']; ?>" <?php echo $emp_filter == $emp['user_id'] ? 'selected' : ''; ?>>
-                                    [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="dropdown searchable-dropdown w-100">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start form-select" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="employeeDropdownBtn">
+                                <?php 
+                                    $selected_label = 'All Employees';
+                                    if ($emp_filter > 0) {
+                                        foreach ($employees_list as $emp) {
+                                            if ($emp['user_id'] == $emp_filter) {
+                                                $selected_label = '[' . $emp['emp_id'] . '] ' . $emp['first_name'] . ' ' . $emp['last_name'];
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    echo e($selected_label);
+                                ?>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                                <input type="text" class="form-control mb-2 dropdown-search-input" placeholder="Type to search..." autocomplete="off">
+                                <div class="dropdown-options-list">
+                                    <button type="button" class="dropdown-item text-start<?php echo $emp_filter == 0 ? ' active' : ''; ?>" data-value="0">All Employees</button>
+                                    <?php foreach ($employees_list as $emp): ?>
+                                        <button type="button" class="dropdown-item text-start<?php echo $emp_filter == $emp['user_id'] ? ' active' : ''; ?>" data-value="<?php echo $emp['user_id']; ?>">
+                                            [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <input type="hidden" name="employee_id" class="dropdown-hidden-input" value="<?php echo (int)$emp_filter; ?>">
+                        </div>
                     </div>
 
-                    <div class="col-md-3">
+                    <div style="flex: 1.5 1 280px; max-width: 340px;">
                         <label class="form-label small fw-semibold">Date Range</label>
                         <div class="input-group">
                             <input type="date" class="form-control" name="date_from" value="<?php echo e($date_from); ?>">
@@ -222,17 +242,17 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
 
-                    <div class="col-md-2">
+                    <div style="flex: 0.8 1 140px; max-width: 170px;">
                         <label class="form-label small fw-semibold">Specific Week</label>
                         <input type="week" class="form-control" name="week" value="<?php echo e($week_filter); ?>">
                     </div>
 
-                    <div class="col-md-2">
+                    <div style="flex: 0.8 1 140px; max-width: 170px;">
                         <label class="form-label small fw-semibold">Specific Month</label>
                         <input type="month" class="form-control" name="month" value="<?php echo e($month_filter); ?>">
                     </div>
 
-                    <div class="col-md-2">
+                    <div style="flex: 1 1 150px; max-width: 190px;">
                         <label class="form-label small fw-semibold">Approval Status</label>
                         <select class="form-select" name="status">
                             <option value="">All Statuses</option>
@@ -241,9 +261,9 @@ require_once __DIR__ . '/../includes/header.php';
                         </select>
                     </div>
 
-                    <div class="col-12 d-flex gap-2 justify-content-end">
-                        <button type="submit" class="btn btn-secondary px-4 fw-medium">Apply Filters</button>
-                        <a href="timesheets" class="btn btn-outline-secondary">Reset Filters</a>
+                    <div class="d-flex gap-2 ms-auto py-1">
+                        <button type="submit" class="btn btn-secondary px-3 fw-medium">Apply Filters</button>
+                        <a href="timesheets" class="btn btn-outline-secondary px-3">Reset Filters</a>
                     </div>
                 </form>
             </div>
@@ -257,11 +277,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <thead class="table-light">
                             <tr>
                                 <th>Date</th>
-                                <th>Emp ID</th>
                                 <th>Employee</th>
                                 <th>Associated Task</th>
+                                <th>Task Details</th>
                                 <th>Duration</th>
-                                <th>Work Details</th>
                                 <th>Status</th>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -269,13 +288,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <tbody>
                             <?php if (empty($timesheets)): ?>
                                 <tr>
-                                    <td colspan="8" class="text-center py-4 text-muted">No timesheet records found matching criteria.</td>
+                                    <td colspan="7" class="text-center py-4 text-muted">No timesheet records found matching criteria.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($timesheets as $row): ?>
                                     <tr>
                                         <td><span class="fw-medium"><?php echo e($row['date']); ?></span></td>
-                                        <td><code><?php echo e($row['emp_id']); ?></code></td>
                                         <td><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></td>
                                         <td>
                                             <?php if ($row['task_title']): ?>
@@ -286,12 +304,12 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <span class="text-muted small">None (Manual Entry)</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td><span class="badge bg-primary-subtle text-primary fs-6"><?php echo number_format($row['duration'], 1); ?> hrs</span></td>
                                         <td>
-                                            <span class="text-truncate d-inline-block" style="max-width: 250px;" title="<?php echo e($row['description']); ?>">
-                                                <?php echo e($row['description']); ?>
-                                            </span>
+                                            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 view-timesheet-btn" data-timesheet-id="<?php echo $row['id']; ?>" style="font-size: 0.8rem;">
+                                                <i class="bi bi-info-circle-fill me-1"></i>View
+                                            </button>
                                         </td>
+                                        <td><span class="badge bg-primary-subtle text-primary fs-6"><?php echo number_format($row['duration'], 1); ?> hrs</span></td>
                                         <td>
                                             <span class="badge <?php echo $row['status'] === 'approved' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'; ?> timesheet-status-badge">
                                                 <?php echo ucfirst(e($row['status'])); ?>
@@ -335,6 +353,31 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
     </div>
 </main>
+
+<!-- Task Details Modal -->
+<div class="modal fade" id="taskDetailsModal" tabindex="-1" aria-labelledby="taskDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="taskDetailsModalLabel">
+                    <i class="bi bi-card-checklist text-primary me-2"></i>Task Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="taskDetailsContent">
+                <!-- Dynamically loaded via AJAX in main.js -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

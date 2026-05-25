@@ -50,10 +50,10 @@ if (isset($_SESSION['user_id'])) {
 }
 
 // Database Credentials (Update with hosting details if needed)
-define('DB_HOST', 'sql200.ezyro.com');
-define('DB_USER', 'ezyro_41961501');
-define('DB_PASS', 'Ags@2026');
-define('DB_NAME', 'ezyro_41961501_timecard');
+define('DB_HOST', getenv('DB_HOST') ?: 'sql200.ezyro.com');
+define('DB_USER', getenv('DB_USER') ?: 'ezyro_41961501');
+define('DB_PASS', getenv('DB_PASS') ?: 'Ags@2026');
+define('DB_NAME', getenv('DB_NAME') ?: 'ezyro_41961501_timecard');
 
 // --- TEMPORARY DIAGNOSTIC (remove after fixing) ---
 // Step 1: Test authentication only (no database)

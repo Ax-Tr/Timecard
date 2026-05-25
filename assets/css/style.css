@@ -96,3 +96,20 @@ body {
         position: relative;
     }
 }
+
+/* Searchable Dropdown Styles */
+.searchable-dropdown .form-select::after {
+    display: none !important;
+}
+
+.searchable-dropdown .dropdown-toggle {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    padding-right: 2.25rem;
+}
+
+.searchable-dropdown .dropdown-menu {
+    border-color: var(--bs-border-color);
+}
+

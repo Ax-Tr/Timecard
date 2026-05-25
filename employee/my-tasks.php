@@ -92,11 +92,16 @@ try {
         SELECT t.*, tu.notes, tu.actual_duration, tu.created_at as completed_at 
         FROM tasks t 
         LEFT JOIN task_updates tu ON t.id = tu.task_id 
-        WHERE t.assigned_to = ? AND t.status = ? 
+        WHERE t.assigned_to = ? 
         ORDER BY t.deadline ASC, t.priority DESC
     ");
-    $tasks_stmt->execute([$user_id, $status_filter]);
-    $tasks = $tasks_stmt->fetchAll();
+    $tasks_stmt->execute([$user_id]);
+    $all_tasks = $tasks_stmt->fetchAll();
+
+    // Filter tasks for list view compatibility
+    $tasks = array_filter($all_tasks, function($t) use ($status_filter) {
+        return $t['status'] === $status_filter;
+    });
 } catch (PDOException $e) {
     $error = 'Database error: ' . $e->getMessage();
 }
@@ -144,18 +149,30 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- View Toggle Buttons -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div></div>
+            <div class="btn-group" role="group" aria-label="Tasks view toggle">
+                <button type="button" class="btn btn-outline-primary btn-sm active" id="listViewBtn">
+                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> List View
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="kanbanViewBtn">
+                    <i class="bi bi-kanban me-1"></i> Kanban Board
+                </button>
+            </div>
+        </div>
+
         <!-- Task List Rows -->
-        <div class="row g-3">
-            <?php if (empty($tasks)): ?>
+        <div id="listViewContainer" class="row g-3">
+            <?php if (empty($all_tasks)): ?>
                 <div class="col-12">
                     <div class="card p-5 text-center text-muted">
                         <i class="bi bi-clipboard-check fs-1 mb-2"></i>
                         <p class="mb-0">No <?php echo e($status_filter); ?> tasks found.</p>
                     </div>
                 </div>
-            <?php else: ?>
-                <?php foreach ($tasks as $task): ?>
-                    <div class="col-12 col-md-6 col-lg-4">
+                <?php foreach ($all_tasks as $task): ?>
+                    <div class="col-12 col-md-6 col-lg-4 task-card-wrapper <?php echo $task['status'] !== $status_filter ? 'd-none' : ''; ?>" data-id="<?php echo $task['id']; ?>" data-status="<?php echo e($task['status']); ?>">
                         <div class="card h-100 d-flex flex-column justify-content-between hover-lift">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -208,6 +225,29 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+        </div>
+
+        <!-- Kanban View Container -->
+        <div id="kanbanViewContainer" class="d-none mb-4">
+            <div class="kanban-board">
+                <!-- Pending Column -->
+                <div class="kanban-col" id="col-pending">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h6 class="fw-bold text-secondary mb-0">PENDING TASKS</h6>
+                        <span class="badge bg-secondary rounded-pill" id="count-pending">0</span>
+                    </div>
+                    <div class="kanban-cards-container" data-status="pending"></div>
+                </div>
+
+                <!-- Completed Column -->
+                <div class="kanban-col" id="col-completed">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h6 class="fw-bold text-success mb-0">COMPLETED TASKS</h6>
+                        <span class="badge bg-success rounded-pill" id="count-completed">0</span>
+                    </div>
+                    <div class="kanban-cards-container" data-status="completed"></div>
+                </div>
+            </div>
         </div>
     </div>
 </main>

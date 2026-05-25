@@ -277,6 +277,155 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // === KANBAN BOARD CONTROLLER ===
+    const listViewBtn = document.getElementById('listViewBtn');
+    const kanbanViewBtn = document.getElementById('kanbanViewBtn');
+    const listViewContainer = document.getElementById('listViewContainer');
+    const kanbanViewContainer = document.getElementById('kanbanViewContainer');
+
+    if (listViewBtn && kanbanViewBtn && listViewContainer && kanbanViewContainer) {
+        const taskCards = Array.from(document.querySelectorAll('.task-card-wrapper'));
+        const pendingContainer = document.querySelector('#col-pending .kanban-cards-container');
+        const completedContainer = document.querySelector('#col-completed .kanban-cards-container');
+        const pendingCountBadge = document.getElementById('count-pending');
+        const completedCountBadge = document.getElementById('count-completed');
+
+        // Check if there is a saved view preference in localStorage
+        const savedView = localStorage.getItem('tasks_view_preference') || 'list';
+        if (savedView === 'kanban') {
+            switchToKanbanView();
+        }
+
+        listViewBtn.addEventListener('click', () => {
+            switchToListView();
+        });
+
+        kanbanViewBtn.addEventListener('click', () => {
+            switchToKanbanView();
+        });
+
+        function switchToListView() {
+            listViewBtn.classList.add('active');
+            kanbanViewBtn.classList.remove('active');
+            kanbanViewContainer.classList.add('d-none');
+            listViewContainer.classList.remove('d-none');
+            localStorage.setItem('tasks_view_preference', 'list');
+
+            // Find current status filter
+            let currentStatusFilter = '';
+            const activeTab = document.querySelector('.nav-pills .nav-link.active');
+            if (activeTab) {
+                currentStatusFilter = new URL(activeTab.href).searchParams.get('status') || 'pending';
+            } else {
+                const statusSelect = document.querySelector('select[name="status"]');
+                if (statusSelect) {
+                    currentStatusFilter = statusSelect.value;
+                }
+            }
+
+            // Move all cards back to the list container
+            taskCards.forEach(card => {
+                card.className = 'col-12 col-md-6 col-lg-4 task-card-wrapper';
+                const status = card.getAttribute('data-status');
+                if (currentStatusFilter && status !== currentStatusFilter) {
+                    card.classList.add('d-none');
+                } else {
+                    card.classList.remove('d-none');
+                }
+                listViewContainer.appendChild(card);
+            });
+        }
+
+        function switchToKanbanView() {
+            listViewBtn.classList.remove('active');
+            kanbanViewBtn.classList.add('active');
+            listViewContainer.classList.add('d-none');
+            kanbanViewContainer.classList.remove('d-none');
+            localStorage.setItem('tasks_view_preference', 'kanban');
+
+            let pendingCount = 0;
+            let completedCount = 0;
+
+            taskCards.forEach(card => {
+                card.className = 'kanban-card task-card-wrapper';
+                card.classList.remove('d-none');
+
+                const status = card.getAttribute('data-status');
+                if (status === 'completed') {
+                    if (completedContainer) {
+                        completedContainer.appendChild(card);
+                        completedCount++;
+                    }
+                } else {
+                    if (pendingContainer) {
+                        pendingContainer.appendChild(card);
+                        pendingCount++;
+                        
+                        // Enable draggable for pending cards
+                        card.setAttribute('draggable', 'true');
+                    }
+                }
+            });
+
+            if (pendingCountBadge) pendingCountBadge.innerText = pendingCount;
+            if (completedCountBadge) completedCountBadge.innerText = completedCount;
+        }
+
+        // --- Drag and Drop implementation ---
+        const columns = document.querySelectorAll('.kanban-col');
+
+        taskCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                columns.forEach(col => col.classList.remove('drag-over'));
+            });
+        });
+
+        columns.forEach(col => {
+            col.addEventListener('dragover', (e) => {
+                const draggingCard = document.querySelector('.kanban-card.dragging');
+                if (draggingCard) {
+                    const fromStatus = draggingCard.getAttribute('data-status');
+                    const toStatus = col.querySelector('.kanban-cards-container').getAttribute('data-status');
+                    
+                    // We only allow dragging from Pending to Completed
+                    if (fromStatus === 'pending' && toStatus === 'completed') {
+                        e.preventDefault();
+                        col.classList.add('drag-over');
+                    }
+                }
+            });
+
+            col.addEventListener('dragleave', () => {
+                col.classList.remove('drag-over');
+            });
+
+            col.addEventListener('drop', (e) => {
+                e.preventDefault();
+                col.classList.remove('drag-over');
+                
+                const taskId = e.dataTransfer.getData('text/plain');
+                const draggingCard = document.querySelector(`.kanban-card[data-id="${taskId}"]`);
+                
+                if (draggingCard) {
+                    const toStatus = col.querySelector('.kanban-cards-container').getAttribute('data-status');
+                    if (toStatus === 'completed') {
+                        // Find the Mark as Completed button inside this card and click it
+                        const markBtn = draggingCard.querySelector('button[data-bs-target="#completeTaskModal"]');
+                        if (markBtn) {
+                            markBtn.click();
+                        }
+                    }
+                }
+            });
+        });
+    }
+
     // Helper to escape HTML characters
     function escapeHtml(str) {
         if (!str) return '';

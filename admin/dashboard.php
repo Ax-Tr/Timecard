@@ -18,17 +18,40 @@ try {
     // 4. Completed Tasks
     $completed_tasks = $pdo->query("SELECT COUNT(*) FROM tasks WHERE status = 'completed'")->fetchColumn();
 
-    // 5. Monthly statistics (Last 6 months)
-    $monthly_stats_stmt = $pdo->query("
-        SELECT DATE_FORMAT(date, '%Y-%m') as month_key, DATE_FORMAT(date, '%M %Y') as month_name, SUM(duration) as hours 
-        FROM timesheets 
-        GROUP BY DATE_FORMAT(date, '%Y-%m'), DATE_FORMAT(date, '%M %Y') 
-        ORDER BY month_key DESC 
-        LIMIT 6
-    ");
+    // Get list of active employees for the filter dropdown
+    $filter_employees = $pdo->query("
+        SELECT id, first_name, last_name, emp_id 
+        FROM employees 
+        WHERE status = 'active' AND role = 'employee' 
+        ORDER BY first_name ASC, last_name ASC
+    ")->fetchAll();
+
+    // Check if employee filter is set
+    $selected_employee_id = isset($_GET['employee_id']) && is_numeric($_GET['employee_id']) ? (int)$_GET['employee_id'] : null;
+
+    // 5. Fetch monthly statistics (Last 6 months)
+    if ($selected_employee_id) {
+        $monthly_stats_stmt = $pdo->prepare("
+            SELECT DATE_FORMAT(date, '%Y-%m') as month_key, DATE_FORMAT(date, '%M %Y') as month_name, SUM(duration) as hours 
+            FROM timesheets 
+            WHERE user_id = :employee_id
+            GROUP BY DATE_FORMAT(date, '%Y-%m'), DATE_FORMAT(date, '%M %Y') 
+            ORDER BY month_key DESC 
+            LIMIT 6
+        ");
+        $monthly_stats_stmt->execute(['employee_id' => $selected_employee_id]);
+    } else {
+        $monthly_stats_stmt = $pdo->query("
+            SELECT DATE_FORMAT(date, '%Y-%m') as month_key, DATE_FORMAT(date, '%M %Y') as month_name, SUM(duration) as hours 
+            FROM timesheets 
+            GROUP BY DATE_FORMAT(date, '%Y-%m'), DATE_FORMAT(date, '%M %Y') 
+            ORDER BY month_key DESC 
+            LIMIT 6
+        ");
+    }
     $monthly_stats = $monthly_stats_stmt->fetchAll();
 
-    // 6a. Toppers of the month (Top 5 active employees by hours)
+    // 6a. Toppers of the month (Top 3 active employees by hours)
     $toppers_stmt = $pdo->query("
         SELECT e.id, e.emp_id, e.first_name, e.last_name, e.email, COALESCE(SUM(t.duration), 0) as hours 
         FROM employees e 
@@ -36,11 +59,11 @@ try {
         WHERE e.status = 'active' AND e.role = 'employee'
         GROUP BY e.id 
         ORDER BY hours DESC 
-        LIMIT 5
+        LIMIT 3
     ");
     $toppers = $toppers_stmt->fetchAll();
 
-    // 6b. Weakers of the month (Bottom 5 active employees by hours)
+    // 6b. Weakers of the month (Bottom 3 active employees by hours)
     $weakers_stmt = $pdo->query("
         SELECT e.id, e.emp_id, e.first_name, e.last_name, e.email, COALESCE(SUM(t.duration), 0) as hours 
         FROM employees e 
@@ -48,7 +71,7 @@ try {
         WHERE e.status = 'active' AND e.role = 'employee'
         GROUP BY e.id 
         ORDER BY hours ASC 
-        LIMIT 5
+        LIMIT 3
     ");
     $weakers = $weakers_stmt->fetchAll();
 
@@ -311,20 +334,55 @@ try {
         <div class="row g-4 mb-4">
             <div class="col-xl-12">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <div class="card-header bg-transparent border-0 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center py-3 gap-2">
                         <div class="d-flex align-items-center">
                             <div class="bg-primary bg-opacity-10 text-primary p-2 rounded me-3">
                                 <i class="bi bi-graph-up-arrow fs-4"></i>
                             </div>
                             <div>
                                 <h5 class="card-title mb-0 fw-bold text-primary">Monthly Trend</h5>
-                                <small class="text-muted">Total logged hours comparison over last 6 months</small>
+                                <small class="text-muted">Logged hours comparison over last 6 months</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Searchable Employee Filter Dropdown -->
+                        <div style="width: 280px; position: relative;" id="trendEmployeeDropdown">
+                            <div class="dropdown searchable-dropdown w-100">
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start form-select text-truncate" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="trendEmployeeBtn" style="font-size: 0.85rem; border-color: rgba(0,0,0,0.15); background-color: var(--bs-body-bg);">
+                                    <?php 
+                                        $selected_label = 'All Employees';
+                                        if ($selected_employee_id) {
+                                            foreach ($filter_employees as $emp) {
+                                                if ($emp['id'] == $selected_employee_id) {
+                                                    $selected_label = '[' . $emp['emp_id'] . '] ' . $emp['first_name'] . ' ' . $emp['last_name'];
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        echo e($selected_label);
+                                    ?>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end w-100 p-2 shadow-sm" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                    <input type="text" class="form-control mb-2 dropdown-search-input form-control-sm" placeholder="Search employee..." autocomplete="off">
+                                    <div class="dropdown-options-list">
+                                        <button type="button" class="dropdown-item text-start<?php echo !$selected_employee_id ? ' active' : ''; ?>" data-value="0" style="font-size: 0.85rem;">All Employees</button>
+                                        <?php foreach ($filter_employees as $emp): ?>
+                                            <button type="button" class="dropdown-item text-start<?php echo $selected_employee_id == $emp['id'] ? ' active' : ''; ?>" data-value="<?php echo $emp['id']; ?>" style="font-size: 0.85rem;">
+                                                [<?php echo e($emp['emp_id']); ?>] <?php echo e($emp['first_name'] . ' ' . $emp['last_name']); ?>
+                                            </button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="trend_employee_id" class="dropdown-hidden-input" value="<?php echo $selected_employee_id ?? '0'; ?>">
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
                         <?php if (empty($monthly_stats)): ?>
-                            <p class="text-muted text-center py-4">No trend data available.</p>
+                            <div class="text-center py-5">
+                                <i class="bi bi-bar-chart text-muted display-4"></i>
+                                <p class="text-muted mt-2 mb-0">No logged hours found for this query.</p>
+                            </div>
                         <?php else: ?>
                             <!-- Chart.js container -->
                             <div class="mb-4" style="height: 300px; position: relative;">
@@ -439,6 +497,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             }
+        });
+    }
+
+    // 2. Trend Employee Filter Redirect Handler
+    const trendDropdownEl = document.getElementById('trendEmployeeDropdown');
+    if (trendDropdownEl) {
+        const options = trendDropdownEl.querySelectorAll('.dropdown-options-list .dropdown-item');
+        options.forEach(opt => {
+            opt.addEventListener('click', function(e) {
+                e.preventDefault();
+                const val = this.getAttribute('data-value');
+                const url = new URL(window.location.href);
+                if (val && val !== '0') {
+                    url.searchParams.set('employee_id', val);
+                } else {
+                    url.searchParams.delete('employee_id');
+                }
+                window.location.href = url.toString();
+            });
         });
     }
 });

@@ -426,6 +426,121 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // === NOTIFICATIONS REAL-TIME POLLER ===
+    const notificationBellIcon = document.getElementById('notificationBellIcon');
+    const notificationBadge = document.getElementById('notificationBadge');
+    const notificationDropdownHeader = document.getElementById('notificationDropdownHeader');
+    const notificationDropdownList = document.getElementById('notificationDropdownList');
+    const clearNotificationsWrapper = document.getElementById('clearNotificationsWrapper');
+
+    if (notificationBellIcon) {
+        let lastCount = parseInt(notificationBadge ? notificationBadge.textContent.trim() : '0') || 0;
+
+        // Poll notifications every 5 seconds
+        setInterval(pollNotifications, 5000);
+
+        function pollNotifications() {
+            const appRoot = getAppRootPath();
+            fetch(appRoot + 'includes/get_notifications.php')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const newCount = data.unread_count;
+                        
+                        // Update badge
+                        if (notificationBadge) {
+                            notificationBadge.textContent = newCount > 99 ? '99+' : newCount;
+                            if (newCount > 0) {
+                                notificationBadge.classList.remove('d-none');
+                            } else {
+                                notificationBadge.classList.add('d-none');
+                            }
+                        }
+
+                        // Update header
+                        if (notificationDropdownHeader) {
+                            notificationDropdownHeader.textContent = `Notifications (${newCount} Unread)`;
+                        }
+
+                        // Update mark all as read visibility
+                        if (clearNotificationsWrapper) {
+                            if (newCount > 0) {
+                                clearNotificationsWrapper.classList.remove('d-none');
+                            } else {
+                                clearNotificationsWrapper.classList.add('d-none');
+                            }
+                        }
+
+                        // Check if we received new notifications
+                        if (newCount > lastCount) {
+                            // Ring the bell!
+                            notificationBellIcon.classList.add('bell-ring-active');
+                            // Remove class after animation ends to allow playing it again later
+                            setTimeout(() => {
+                                notificationBellIcon.classList.remove('bell-ring-active');
+                            }, 800);
+
+                            // Prepend new notifications to list & show toaster
+                            if (notificationDropdownList) {
+                                const newNotifications = data.notifications.slice(0, newCount - lastCount);
+                                
+                                // Show toaster alert for the latest notification
+                                if (newNotifications.length > 0) {
+                                    showToast(newNotifications[0].message, 'info');
+                                }
+
+                                // Clear empty state label
+                                const noNotiLabel = document.getElementById('noNotificationsLabel');
+                                if (noNotiLabel) {
+                                    noNotiLabel.remove();
+                                }
+
+                                // Re-render the notification items dynamically
+                                let html = '';
+                                data.notifications.forEach(noti => {
+                                    html += `
+                                        <li>
+                                            <a class="dropdown-item py-2 px-3 border-bottom d-flex flex-column text-wrap" href="#">
+                                                <span>${escapeHtml(noti.message)}</span>
+                                                <small class="text-muted mt-1" style="font-size: 0.75rem;">${noti.formatted_time}</small>
+                                            </a>
+                                        </li>
+                                    `;
+                                });
+                                notificationDropdownList.innerHTML = html;
+                            }
+                        } else if (newCount < lastCount) {
+                            // Count went down (e.g. cleared elsewhere), re-render list
+                            if (newCount === 0) {
+                                if (notificationDropdownList) {
+                                    notificationDropdownList.innerHTML = '<li class="text-muted text-center py-3" id="noNotificationsLabel">No new notifications</li>';
+                                }
+                            } else {
+                                if (notificationDropdownList) {
+                                    let html = '';
+                                    data.notifications.forEach(noti => {
+                                        html += `
+                                            <li>
+                                                <a class="dropdown-item py-2 px-3 border-bottom d-flex flex-column text-wrap" href="#">
+                                                    <span>${escapeHtml(noti.message)}</span>
+                                                    <small class="text-muted mt-1" style="font-size: 0.75rem;">${noti.formatted_time}</small>
+                                                </a>
+                                            </li>
+                                        `;
+                                    });
+                                    notificationDropdownList.innerHTML = html;
+                                }
+                            }
+                        }
+
+                        lastCount = newCount;
+                    }
+                })
+                .catch(err => console.error('Error polling notifications:', err));
+        }
+    }
+    }
+
     // Helper to escape HTML characters
     function escapeHtml(str) {
         if (!str) return '';

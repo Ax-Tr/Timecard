@@ -15,12 +15,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt = $pdo->prepare("UPDATE timesheets SET status = 'approved' WHERE id = ?");
             $stmt->execute([$timesheet_id]);
             
-            // Get employee log
-            $emp_stmt = $pdo->prepare("SELECT e.emp_id, t.date, t.duration FROM timesheets t JOIN employees e ON t.user_id = e.id WHERE t.id = ?");
+            // Get employee log and task title for notification
+            $emp_stmt = $pdo->prepare("SELECT e.emp_id, t.user_id, t.date, t.duration, t.description, tk.title as task_title 
+                                       FROM timesheets t 
+                                       JOIN employees e ON t.user_id = e.id 
+                                       LEFT JOIN tasks tk ON t.task_id = tk.id 
+                                       WHERE t.id = ?");
             $emp_stmt->execute([$timesheet_id]);
             $t_info = $emp_stmt->fetch();
             
             log_activity($_SESSION['user_id'], "Approved timesheet for employee {$t_info['emp_id']} on date {$t_info['date']} ({$t_info['duration']} hrs)");
+            
+            // Send notification to the employee
+            $task_display = !empty($t_info['task_title']) ? $t_info['task_title'] : (strlen($t_info['description']) > 30 ? substr($t_info['description'], 0, 27) . '...' : $t_info['description']);
+            $noti_msg = "Your timesheet for {$task_display} has been approved by Admin.";
+            add_notification($t_info['user_id'], $noti_msg);
             
             if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
                 header('Content-Type: application/json');

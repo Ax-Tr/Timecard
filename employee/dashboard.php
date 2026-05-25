@@ -71,6 +71,68 @@ try {
     $tasks_preview_stmt->execute([$user_id]);
     $tasks_preview = $tasks_preview_stmt->fetchAll();
 
+    // 6. Fetch 1 year of daily logged hours for contribution heatmap
+    $heatmap_stmt = $pdo->prepare("
+        SELECT date, SUM(duration) as daily_hours 
+        FROM timesheets 
+        WHERE user_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 364 DAY)
+        GROUP BY date
+    ");
+    $heatmap_stmt->execute([$user_id]);
+    $heatmap_data = $heatmap_stmt->fetchAll();
+
+    // Index by date for fast lookup in PHP
+    $daily_logs = [];
+    foreach ($heatmap_data as $row) {
+        $daily_logs[$row['date']] = (float)$row['daily_hours'];
+    }
+
+    // Generate contribution calendar weeks and days
+    $start_date = new DateTime();
+    $start_date->modify('-364 days');
+    $day_of_week = (int)$start_date->format('w');
+    if ($day_of_week > 0) {
+        $start_date->modify("-$day_of_week days");
+    }
+    
+    $end_date = new DateTime();
+    $interval = new DateInterval('P1D');
+    $date_period = new DatePeriod($start_date, $interval, $end_date->modify('+1 day'));
+
+    $weeks = [];
+    $current_week = [];
+    
+    foreach ($date_period as $date) {
+        $date_str = $date->format('Y-m-d');
+        $hours = $daily_logs[$date_str] ?? 0;
+        
+        $level = 0;
+        if ($hours > 0 && $hours <= 2) {
+            $level = 1;
+        } elseif ($hours > 2 && $hours <= 5) {
+            $level = 2;
+        } elseif ($hours > 5 && $hours <= 8) {
+            $level = 3;
+        } elseif ($hours > 8) {
+            $level = 4;
+        }
+        
+        $current_week[] = [
+            'date' => $date_str,
+            'formatted_date' => $date->format('M d, Y'),
+            'hours' => $hours,
+            'level' => $level
+        ];
+        
+        if (count($current_week) === 7) {
+            $weeks[] = $current_week;
+            $current_week = [];
+        }
+    }
+    if (!empty($current_week)) {
+        $weeks[] = $current_week;
+    }
+
 } catch (PDOException $e) {
     error_log("Employee dashboard error: " . $e->getMessage());
     $error = "Error loading dashboard metrics.";
@@ -222,6 +284,58 @@ try {
                                 </table>
                             </div>
                         <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heatmap Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="m-0 fw-bold text-primary"><i class="bi bi-calendar3 me-1"></i> Your Activity Heatmap (Last 12 Months)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="heatmap-container">
+                            <div class="heatmap-grid mb-3">
+                                <!-- Y-Axis labels (Sun, Tue, Thu, Sat) -->
+                                <div class="d-flex flex-column justify-content-between text-muted me-2 small" style="height: 95px; font-size: 0.7rem; margin-top: 15px;">
+                                    <span>Sun</span>
+                                    <span>Tue</span>
+                                    <span>Thu</span>
+                                    <span>Sat</span>
+                                </div>
+                                
+                                <div class="d-flex gap-1 overflow-auto py-1">
+                                    <?php foreach ($weeks as $week): ?>
+                                        <div class="heatmap-week">
+                                            <?php foreach ($week as $day): ?>
+                                                <div class="heatmap-day level-<?php echo $day['level']; ?>" 
+                                                     data-bs-toggle="tooltip" 
+                                                     data-bs-placement="top" 
+                                                     title="<?php echo e($day['formatted_date']) . ': ' . number_format($day['hours'], 1) . ' hrs'; ?>">
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            
+                            <!-- Legend -->
+                            <div class="d-flex justify-content-between align-items-center text-muted small border-top pt-3 flex-wrap gap-2">
+                                <span>Learn how we count logged hours</span>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="me-1">Less</span>
+                                    <div class="heatmap-day level-0" style="cursor: default;"></div>
+                                    <div class="heatmap-day level-1" style="cursor: default;"></div>
+                                    <div class="heatmap-day level-2" style="cursor: default;"></div>
+                                    <div class="heatmap-day level-3" style="cursor: default;"></div>
+                                    <div class="heatmap-day level-4" style="cursor: default;"></div>
+                                    <span class="ms-1">More</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

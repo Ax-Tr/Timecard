@@ -1,6 +1,12 @@
 // Custom Application Scripts
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(tooltipTriggerEl => {
+        new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
     // 1. Sidebar Toggle Logic
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');

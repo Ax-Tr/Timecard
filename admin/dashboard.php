@@ -179,21 +179,21 @@ try {
             <!-- Toppers Card -->
             <div class="col-xl-6">
                 <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-2.5 px-3">
                         <div class="d-flex align-items-center">
                             <div class="bg-success bg-opacity-10 text-success p-2 rounded me-3">
-                                <i class="bi bi-trophy-fill fs-4"></i>
+                                <i class="bi bi-trophy-fill fs-5"></i>
                             </div>
                             <div>
-                                <h5 class="card-title mb-0 fw-bold text-success">Monthly Toppers</h5>
-                                <small class="text-muted">Top performers this month</small>
+                                <h6 class="card-title mb-0 fw-bold text-success" style="font-size: 0.95rem;">Monthly Toppers</h6>
+                                <small class="text-muted" style="font-size: 0.75rem;">Top performers this month</small>
                             </div>
                         </div>
-                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 fw-semibold">🏆 High Achievers</span>
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1.5 fw-semibold" style="font-size: 0.75rem;">🏆 High Achievers</span>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-2.5">
                         <?php if (empty($toppers)): ?>
-                            <p class="text-muted text-center py-4">No logged hours recorded yet.</p>
+                            <p class="text-muted text-center py-4 mb-0">No logged hours recorded yet.</p>
                         <?php else: ?>
                             <div class="list-group list-group-flush">
                                 <?php 
@@ -214,7 +214,7 @@ try {
                                     $colors = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
                                     $avatar_bg = $colors[$row['id'] % count($colors)];
                                 ?>
-                                    <div class="list-group-item list-group-item-action border-0 rounded-3 mb-2 p-3 d-flex align-items-center justify-content-between hover-lift employee-report-trigger cursor-pointer" 
+                                    <div class="list-group-item list-group-item-action border-0 rounded-3 mb-1.5 py-2 px-3 d-flex align-items-center justify-content-between hover-lift employee-report-trigger cursor-pointer" 
                                          data-id="<?php echo $row['id']; ?>"
                                          data-name="<?php echo e($row['first_name'] . ' ' . $row['last_name']); ?>"
                                          data-emp-id="<?php echo e($row['emp_id']); ?>"
@@ -223,25 +223,25 @@ try {
                                          data-month="<?php echo date('m'); ?>">
                                          
                                         <div class="d-flex align-items-center flex-grow-1 me-3">
-                                            <div class="me-3 fs-4 text-center" style="width: 32px;"><?php echo $rank_badge; ?></div>
+                                            <div class="me-2.5 fs-5 text-center" style="width: 28px;"><?php echo $rank_badge; ?></div>
                                             
-                                            <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" 
-                                                 style="width: 42px; height: 42px; background: <?php echo $avatar_bg; ?>; font-size: 0.95rem;">
+                                            <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-2.5 fw-bold shadow-sm" 
+                                                 style="width: 36px; height: 36px; background: <?php echo $avatar_bg; ?>; font-size: 0.85rem; flex-shrink: 0;">
                                                 <?php echo $initials; ?>
                                             </div>
                                             
                                             <div class="flex-grow-1">
-                                                <h6 class="mb-0 fw-bold text-dark"><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></h6>
-                                                <small class="text-muted">ID: <code><?php echo e($row['emp_id']); ?></code></small>
+                                                <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.88rem;"><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></h6>
+                                                <small class="text-muted" style="font-size: 0.72rem;">ID: <code><?php echo e($row['emp_id']); ?></code></small>
                                                 
-                                                <div class="progress mt-2" style="height: 6px; border-radius: 3px; background-color: var(--bs-secondary-bg);">
-                                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: <?php echo $percentage; ?>%; border-radius: 3px;" aria-valuenow="<?php echo $row['hours']; ?>" aria-valuemin="0" aria-valuemax="<?php echo $max_topper_hours; ?>"></div>
+                                                <div class="progress mt-1.5" style="height: 4px; border-radius: 2px; background-color: var(--bs-secondary-bg);">
+                                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: <?php echo $percentage; ?>%; border-radius: 2px;" aria-valuenow="<?php echo $row['hours']; ?>" aria-valuemin="0" aria-valuemax="<?php echo $max_topper_hours; ?>"></div>
                                                 </div>
                                             </div>
                                         </div>
                                         
                                         <div class="text-end">
-                                            <span class="badge bg-success-subtle text-success fs-6 rounded-pill px-3 py-2 fw-bold"><?php echo number_format($row['hours'], 1); ?> hrs</span>
+                                            <span class="badge bg-success-subtle text-success rounded-pill px-2.5 py-1.5 fw-bold" style="font-size: 0.78rem;"><?php echo number_format($row['hours'], 1); ?> hrs</span>
                                         </div>
                                     </div>
                                 <?php 
@@ -257,21 +257,21 @@ try {
             <!-- Weakers Card -->
             <div class="col-xl-6">
                 <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-2.5 px-3">
                         <div class="d-flex align-items-center">
                             <div class="bg-danger bg-opacity-10 text-danger p-2 rounded me-3">
-                                <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
                             </div>
                             <div>
-                                <h5 class="card-title mb-0 fw-bold text-danger">Needs Attention</h5>
-                                <small class="text-muted">Least hours logged this month</small>
+                                <h6 class="card-title mb-0 fw-bold text-danger" style="font-size: 0.95rem;">Needs Attention</h6>
+                                <small class="text-muted" style="font-size: 0.75rem;">Least hours logged this month</small>
                             </div>
                         </div>
-                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2 fw-semibold">⚠️ Action Required</span>
+                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2.5 py-1.5 fw-semibold" style="font-size: 0.75rem;">⚠️ Action Required</span>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-2.5">
                         <?php if (empty($weakers)): ?>
-                            <p class="text-muted text-center py-4">No active employees found.</p>
+                            <p class="text-muted text-center py-4 mb-0">No active employees found.</p>
                         <?php else: ?>
                             <div class="list-group list-group-flush">
                                 <?php 
@@ -287,7 +287,7 @@ try {
                                     $colors = ['#ef4444', '#f97316', '#b91c1c', '#ea580c', '#dc2626'];
                                     $avatar_bg = $colors[$row['id'] % count($colors)];
                                 ?>
-                                    <div class="list-group-item list-group-item-action border-0 rounded-3 mb-2 p-3 d-flex align-items-center justify-content-between hover-lift employee-report-trigger cursor-pointer" 
+                                    <div class="list-group-item list-group-item-action border-0 rounded-3 mb-1.5 py-2 px-3 d-flex align-items-center justify-content-between hover-lift employee-report-trigger cursor-pointer" 
                                          data-id="<?php echo $row['id']; ?>"
                                          data-name="<?php echo e($row['first_name'] . ' ' . $row['last_name']); ?>"
                                          data-emp-id="<?php echo e($row['emp_id']); ?>"
@@ -296,27 +296,27 @@ try {
                                          data-month="<?php echo date('m'); ?>">
                                          
                                         <div class="d-flex align-items-center flex-grow-1 me-3">
-                                            <div class="me-3 fs-5 text-center" style="width: 32px;">
-                                                <i class="bi bi-arrow-down-circle-fill text-danger"></i>
+                                            <div class="me-2.5 fs-6 text-center text-danger" style="width: 28px;">
+                                                <i class="bi bi-arrow-down-circle-fill"></i>
                                             </div>
                                             
-                                            <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-3 fw-bold shadow-sm" 
-                                                 style="width: 42px; height: 42px; background: <?php echo $avatar_bg; ?>; font-size: 0.95rem;">
+                                            <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-2.5 fw-bold shadow-sm" 
+                                                 style="width: 36px; height: 36px; background: <?php echo $avatar_bg; ?>; font-size: 0.85rem; flex-shrink: 0;">
                                                 <?php echo $initials; ?>
                                             </div>
                                             
                                             <div class="flex-grow-1">
-                                                <h6 class="mb-0 fw-bold text-dark"><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></h6>
-                                                <small class="text-muted">ID: <code><?php echo e($row['emp_id']); ?></code></small>
+                                                <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.88rem;"><?php echo e($row['first_name'] . ' ' . $row['last_name']); ?></h6>
+                                                <small class="text-muted" style="font-size: 0.72rem;">ID: <code><?php echo e($row['emp_id']); ?></code></small>
                                                 
-                                                <div class="progress mt-2" style="height: 6px; border-radius: 3px; background-color: var(--bs-secondary-bg);">
-                                                    <div class="progress-bar bg-danger" role="progressbar" style="width: <?php echo $percentage; ?>%; border-radius: 3px;" aria-valuenow="<?php echo $row['hours']; ?>" aria-valuemin="0" aria-valuemax="<?php echo $target_hours; ?>"></div>
+                                                <div class="progress mt-1.5" style="height: 4px; border-radius: 2px; background-color: var(--bs-secondary-bg);">
+                                                    <div class="progress-bar bg-danger" role="progressbar" style="width: <?php echo $percentage; ?>%; border-radius: 2px;" aria-valuenow="<?php echo $row['hours']; ?>" aria-valuemin="0" aria-valuemax="<?php echo $target_hours; ?>"></div>
                                                 </div>
                                             </div>
                                         </div>
                                         
                                         <div class="text-end">
-                                            <span class="badge bg-danger-subtle text-danger fs-6 rounded-pill px-3 py-2 fw-bold"><?php echo number_format($row['hours'], 1); ?> hrs</span>
+                                            <span class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1.5 fw-bold" style="font-size: 0.78rem;"><?php echo number_format($row['hours'], 1); ?> hrs</span>
                                         </div>
                                     </div>
                                 <?php 

@@ -29,7 +29,7 @@ try {
 
     // 2. Fetch Employee-wise summary table for the selected Month/Year
     $summary_stmt = $pdo->prepare("
-        SELECT e.emp_id, e.first_name, e.last_name, e.email, 
+        SELECT e.id, e.emp_id, e.first_name, e.last_name, e.email, 
                COALESCE(SUM(t.duration), 0) as total_hours,
                COUNT(DISTINCT t.id) as days_logged
         FROM employees e
@@ -166,12 +166,13 @@ require_once __DIR__ . '/../includes/header.php';
                                 <th>Days Logged</th>
                                 <th>Total Logged Hours</th>
                                 <th>Avg Hours/Day</th>
+                                <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($employee_summary)): ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No active employees to display.</td>
+                                    <td colspan="7" class="text-center py-4 text-muted">No active employees to display.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($employee_summary as $row): ?>
@@ -193,6 +194,13 @@ require_once __DIR__ . '/../includes/header.php';
                                                     : '0.0 hrs';
                                                 ?>
                                             </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="print_employee_report.php?id=<?php echo $row['id']; ?>&year=<?php echo $year; ?>&month=<?php echo $month; ?>" 
+                                               target="_blank" 
+                                               class="btn btn-outline-danger btn-sm fw-medium">
+                                                <i class="bi bi-file-earmark-pdf me-1"></i> PDF Report
+                                            </a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

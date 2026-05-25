@@ -71,6 +71,46 @@ try {
     $tasks_preview_stmt->execute([$user_id]);
     $tasks_preview = $tasks_preview_stmt->fetchAll();
 
+    // 6. Fetch last 7 days of worked hours for chart
+    $weekly_stats_stmt = $pdo->prepare("
+        SELECT date, SUM(duration) as hours 
+        FROM timesheets 
+        WHERE user_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY date 
+        ORDER BY date ASC
+    ");
+    $weekly_stats_stmt->execute([$user_id]);
+    $weekly_stats = $weekly_stats_stmt->fetchAll();
+
+    $chart_labels = [];
+    $chart_data = [];
+    for ($i = 6; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $chart_labels[] = date('D, M d', strtotime($d));
+        
+        $hours = 0;
+        foreach ($weekly_stats as $stat) {
+            if ($stat['date'] === $d) {
+                $hours = (float)$stat['hours'];
+                break;
+            }
+        }
+        $chart_data[] = $hours;
+    }
+
+    // 7. Fetch task vs manual hours allocation
+    $allocation_stmt = $pdo->prepare("
+        SELECT 
+            SUM(CASE WHEN task_id IS NOT NULL THEN duration ELSE 0 END) as task_hours,
+            SUM(CASE WHEN task_id IS NULL THEN duration ELSE 0 END) as manual_hours
+        FROM timesheets
+        WHERE user_id = ? AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+    ");
+    $allocation_stmt->execute([$user_id]);
+    $allocation = $allocation_stmt->fetch();
+    $task_hours = (float)($allocation['task_hours'] ?? 0);
+    $manual_hours = (float)($allocation['manual_hours'] ?? 0);
+
 } catch (PDOException $e) {
     error_log("Employee dashboard error: " . $e->getMessage());
     $error = "Error loading dashboard metrics.";
@@ -226,7 +266,122 @@ try {
                 </div>
             </div>
         </div>
+
+        <!-- Dashboard Charts Row -->
+        <div class="row g-4 mt-1">
+            <!-- Weekly Hours Line Chart -->
+            <div class="col-xl-8">
+                <div class="card h-100">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="m-0 fw-bold text-primary">Your Daily Worked Hours (Last 7 Days)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 240px; position: relative;">
+                            <canvas id="weeklyHoursChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task vs Manual hours allocation chart -->
+            <div class="col-xl-4">
+                <div class="card h-100">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="m-0 fw-bold text-primary">Hour Allocation (This Month)</h6>
+                    </div>
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                        <?php if ($task_hours == 0 && $manual_hours == 0): ?>
+                            <p class="text-muted text-center py-4 my-auto">No hours logged yet this month.</p>
+                        <?php else: ?>
+                            <div style="height: 200px; width: 200px; position: relative;" class="mx-auto mb-3">
+                                <canvas id="allocationChart"></canvas>
+                            </div>
+                            <div class="w-100 mt-2 text-center small">
+                                <span class="badge bg-primary text-white me-2">Task-Assigned: <?php echo number_format($task_hours, 1); ?> hrs</span>
+                                <span class="badge bg-secondary text-white">Manual Entry: <?php echo number_format($manual_hours, 1); ?> hrs</span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </main>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Weekly hours line chart
+    const weeklyCtx = document.getElementById('weeklyHoursChart');
+    if (weeklyCtx) {
+        const labels = <?php echo json_encode($chart_labels); ?>;
+        const data = <?php echo json_encode($chart_data); ?>;
+
+        new Chart(weeklyCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Hours Worked',
+                    data: data,
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.05)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#198754',
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { callback: value => value + ' hrs' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Task vs Manual hours allocation chart
+    const allocationCtx = document.getElementById('allocationChart');
+    if (allocationCtx) {
+        const taskHours = <?php echo $task_hours; ?>;
+        const manualHours = <?php echo $manual_hours; ?>;
+
+        new Chart(allocationCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Task-Assigned', 'Manual Entry'],
+                datasets: [{
+                    data: [taskHours, manualHours],
+                    backgroundColor: ['#0d6efd', '#6c757d'],
+                    hoverBackgroundColor: ['#0b5ed7', '#5c636a'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

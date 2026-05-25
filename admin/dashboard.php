@@ -148,6 +148,10 @@ try {
                         <?php if (empty($productivity)): ?>
                             <p class="text-muted text-center py-4">No hours logged yet this month.</p>
                         <?php else: ?>
+                            <!-- Productivity Bar Chart -->
+                            <div class="mb-4" style="height: 240px; position: relative;">
+                                <canvas id="productivityChart"></canvas>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-hover align-middle mb-0">
                                     <thead class="table-light">
@@ -181,16 +185,20 @@ try {
                         <?php endif; ?>
                     </div>
                 </div>
-
+ 
                 <!-- Monthly Statistics -->
                 <div class="card">
                     <div class="card-header bg-transparent py-3">
-                        <h6 class="m-0 fw-bold text-primary">Monthly Statistics (Logged Hours)</h6>
+                        <h6 class="m-0 fw-bold text-primary">Monthly Statistics (Logged Hours Trend)</h6>
                     </div>
                     <div class="card-body">
                         <?php if (empty($monthly_stats)): ?>
                             <p class="text-muted text-center py-4">No data available.</p>
                         <?php else: ?>
+                            <!-- Monthly Trend Chart -->
+                            <div class="mb-4" style="height: 240px; position: relative;">
+                                <canvas id="monthlyTrendChart"></canvas>
+                            </div>
                             <div class="row">
                                 <?php foreach (array_reverse($monthly_stats) as $stat): ?>
                                     <div class="col-sm-6 col-md-4 mb-3">
@@ -235,7 +243,92 @@ try {
                 </div>
             </div>
         </div>
-    </div>
-</main>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Monthly statistics (Logged Hours Trend)
+    const monthlyCtx = document.getElementById('monthlyTrendChart');
+    if (monthlyCtx) {
+        const months = <?php echo json_encode(array_column(array_reverse($monthly_stats), 'month_name')); ?>;
+        const hours = <?php echo json_encode(array_column(array_reverse($monthly_stats), 'hours')); ?>;
+
+        new Chart(monthlyCtx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Logged Hours',
+                    data: hours,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#0d6efd',
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { callback: value => value + ' hrs' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Employee Productivity Chart
+    const productivityCtx = document.getElementById('productivityChart');
+    if (productivityCtx) {
+        const names = <?php echo json_encode(array_map(function($p) {
+            return $p['first_name'] . ' ' . $p['last_name'];
+        }, $productivity)); ?>;
+        const hours = <?php echo json_encode(array_column($productivity, 'hours')); ?>;
+
+        new Chart(productivityCtx, {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [{
+                    label: 'Hours Logged',
+                    data: hours,
+                    backgroundColor: 'rgba(25, 135, 84, 0.85)',
+                    hoverBackgroundColor: '#198754',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { callback: value => value + ' hrs' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

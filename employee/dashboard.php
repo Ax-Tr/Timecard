@@ -361,7 +361,6 @@ try {
                                 <div class="progress shadow-sm" style="height: 8px; border-radius: 4px; background-color: var(--bs-border-color);">
                                     <div id="shiftProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
-                                <small id="shiftProgressLabel" class="text-muted mt-1 d-block" style="font-size: 0.72rem;"></small>
                             </div>
                         <?php elseif ($completed_today): ?>
                             <p class="text-info mb-0 small">
@@ -814,7 +813,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const clockOutText = document.getElementById('clockOutText');
     const liveWorkedTime = document.getElementById('liveWorkedTime');
     const shiftProgressBar = document.getElementById('shiftProgressBar');
-    const shiftProgressLabel = document.getElementById('shiftProgressLabel');
 
     if (clockOutBtn) {
         let elapsed = parseInt(clockOutBtn.getAttribute('data-elapsed'), 10) || 0;
@@ -867,19 +865,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (clockOutText) {
                     clockOutText.textContent = `Clock Out (Lock: ${timeStr})`;
                 }
-                if (shiftProgressLabel) {
-                    const reqHours = (required / 3600).toFixed(1);
-                    const remHours = (remaining / 3600).toFixed(2);
-                    shiftProgressLabel.textContent = `${remHours} hrs remaining of ${reqHours} hrs shift.`;
-                }
             } else {
                 clockOutBtn.removeAttribute('disabled');
                 if (clockOutText) {
                     clockOutText.textContent = 'Clock Out';
-                }
-                if (shiftProgressLabel) {
-                    const reqHours = (required / 3600).toFixed(1);
-                    shiftProgressLabel.textContent = `Required shift of ${reqHours} hrs completed. You can clock out!`;
                 }
                 if (shiftProgressBar) {
                     shiftProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');

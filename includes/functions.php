@@ -77,3 +77,21 @@ function add_notification($user_id, $message) {
         error_log("Failed to add notification: " . $e->getMessage());
     }
 }
+
+// Format worked duration into "X hr Y mins Z secs" format
+function format_worked_duration($clock_in, $clock_out) {
+    if (!$clock_in || !$clock_out) return '-';
+    $seconds = strtotime($clock_out) - strtotime($clock_in);
+    if ($seconds <= 0) return '0 secs';
+    
+    $h = floor($seconds / 3600);
+    $m = floor(($seconds % 3600) / 60);
+    $s = $seconds % 60;
+    
+    $parts = [];
+    $parts[] = "{$h} hr" . ($h != 1 ? 's' : '');
+    $parts[] = "{$m} min" . ($m != 1 ? 's' : '');
+    $parts[] = "{$s} sec" . ($s != 1 ? 's' : '');
+    
+    return implode(' ', $parts);
+}

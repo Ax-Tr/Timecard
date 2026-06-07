@@ -10,6 +10,8 @@ if (is_admin()) {
     exit;
 }
 
+// File Access secured
+
 $user_id = $_SESSION['user_id'];
 $error = $_SESSION['attendance_error'] ?? '';
 $success = $_SESSION['attendance_success'] ?? '';
@@ -364,7 +366,7 @@ try {
                             </div>
                         <?php elseif ($completed_today): ?>
                             <p class="text-info mb-0 small">
-                                <i class="bi bi-award-fill me-1"></i> Shift completed today! Clocked in at <strong><?php echo date('h:i A', strtotime($completed_today['clock_in'])); ?></strong> and clocked out at <strong><?php echo date('h:i A', strtotime($completed_today['clock_out'])); ?></strong> (worked <strong><?php echo number_format($completed_today['duration'], 2); ?></strong> hrs).
+                                <i class="bi bi-award-fill me-1"></i> Shift completed today! Clocked in at <strong><?php echo date('h:i A', strtotime($completed_today['clock_in'])); ?></strong> and clocked out at <strong><?php echo date('h:i A', strtotime($completed_today['clock_out'])); ?></strong> (worked <strong><?php echo format_worked_duration($completed_today['clock_in'], $completed_today['clock_out']); ?></strong>).
                             </p>
                         <?php else: ?>
                             <p class="text-muted mb-0 small">You are currently clocked out. Don't forget to clock in!</p>
@@ -616,8 +618,8 @@ try {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td>
-                                                    <?php if ($log['duration'] !== null): ?>
-                                                        <span class="badge bg-primary-subtle text-primary font-monospace fs-7"><?php echo number_format($log['duration'], 2); ?> hrs</span>
+                                                    <?php if ($log['clock_out'] !== null): ?>
+                                                        <span class="badge bg-primary-subtle text-primary font-monospace fs-7"><?php echo format_worked_duration($log['clock_in'], $log['clock_out']); ?></span>
                                                     <?php else: ?>
                                                         <span class="text-muted small">-</span>
                                                     <?php endif; ?>

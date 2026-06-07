@@ -193,8 +193,8 @@ require_once __DIR__ . '/../includes/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($log['duration'] !== null): ?>
-                                                <span class="badge bg-primary-subtle text-primary fw-semibold"><?php echo number_format($log['duration'], 2); ?> hrs</span>
+                                            <?php if ($log['clock_out'] !== null): ?>
+                                                <span class="badge bg-primary-subtle text-primary fw-semibold"><?php echo format_worked_duration($log['clock_in'], $log['clock_out']); ?></span>
                                             <?php else: ?>
                                                 <span class="badge bg-light text-dark fw-semibold">-</span>
                                             <?php endif; ?>

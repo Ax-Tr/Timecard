@@ -25,6 +25,6 @@
         };
     </script>
     <!-- Custom Main JS -->
-    <script src="<?php echo APP_ROOT; ?>assets/js/main.js"></script>
+    <script src="<?php echo APP_ROOT; ?>assets/js/main.js?v=5"></script>
 </body>
 </html>

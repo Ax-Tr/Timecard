@@ -19,7 +19,7 @@ require_login();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
-    <link href="<?php echo APP_ROOT; ?>assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo APP_ROOT; ?>assets/css/style.css?v=5" rel="stylesheet">
     <!-- Early theme configuration to prevent page flash -->
     <script>
         (function () {

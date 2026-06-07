@@ -111,6 +111,35 @@ document.addEventListener('DOMContentLoaded', function () {
         const optionsList = dropdownEl.querySelector('.dropdown-options-list');
         const options = optionsList.querySelectorAll('.dropdown-item');
 
+        let highlightIndex = -1;
+
+        const getVisibleOptions = () => {
+            return Array.from(options).filter(opt => opt.style.display !== 'none');
+        };
+
+        const updateHighlight = (visibleOpts) => {
+            options.forEach(opt => opt.classList.remove('highlighted'));
+            if (highlightIndex >= 0 && highlightIndex < visibleOpts.length) {
+                const targetOpt = visibleOpts[highlightIndex];
+                targetOpt.classList.add('highlighted');
+
+                // Auto-scroll logic to keep the highlighted item in view
+                const menuEl = targetOpt.closest('.dropdown-menu');
+                if (menuEl) {
+                    const menuTop = menuEl.scrollTop;
+                    const menuBottom = menuTop + menuEl.clientHeight;
+                    const elemTop = targetOpt.offsetTop;
+                    const elemBottom = elemTop + targetOpt.offsetHeight;
+
+                    if (elemBottom > menuBottom) {
+                        menuEl.scrollTop = elemBottom - menuEl.clientHeight;
+                    } else if (elemTop < menuTop) {
+                        menuEl.scrollTop = elemTop;
+                    }
+                }
+            }
+        };
+
         // Filter options as user types
         if (searchInput) {
             searchInput.addEventListener('input', function() {
@@ -122,9 +151,41 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         opt.style.display = 'none';
                     }
+                    opt.classList.remove('highlighted');
                 });
+                highlightIndex = -1;
             });
-        }
+
+        // Keyboard navigation listener on the entire dropdown container (ArrowUp, ArrowDown, Enter)
+        dropdownEl.addEventListener('keydown', function(e) {
+            const visibleOpts = getVisibleOptions();
+            if (visibleOpts.length === 0) return;
+
+            const key = e.key || '';
+            const keyCode = e.keyCode || 0;
+
+            if (key === 'ArrowDown' || key === 'Down' || keyCode === 40) {
+                e.preventDefault();
+                highlightIndex = (highlightIndex + 1) % visibleOpts.length;
+                updateHighlight(visibleOpts);
+            } else if (key === 'ArrowUp' || key === 'Up' || keyCode === 38) {
+                e.preventDefault();
+                highlightIndex = (highlightIndex - 1 + visibleOpts.length) % visibleOpts.length;
+                updateHighlight(visibleOpts);
+            } else if (key === 'Enter' || keyCode === 13) {
+                if (highlightIndex >= 0 && highlightIndex < visibleOpts.length) {
+                    e.preventDefault();
+                    visibleOpts[highlightIndex].click();
+                } else if (visibleOpts.length === 1) {
+                    e.preventDefault();
+                    visibleOpts[0].click();
+                }
+            } else if (key === 'Escape' || keyCode === 27) {
+                e.preventDefault();
+                const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownBtn) || new bootstrap.Dropdown(dropdownBtn);
+                dropdownInstance.hide();
+            }
+        });
 
         // Handle option click
         options.forEach(opt => {
@@ -156,7 +217,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchInput.value = '';
                 searchInput.focus();
             }
-            options.forEach(opt => opt.style.display = 'block');
+            options.forEach(opt => {
+                opt.style.display = 'block';
+                opt.classList.remove('highlighted');
+            });
+            highlightIndex = -1;
+        });
+
+        // Clear highlight when dropdown is hidden
+        dropdownEl.addEventListener('hidden.bs.dropdown', function() {
+            options.forEach(opt => opt.classList.remove('highlighted'));
+            highlightIndex = -1;
         });
     });
 

@@ -121,6 +121,14 @@ body {
     word-break: break-word;
 }
 
+.searchable-dropdown .dropdown-item:hover,
+.searchable-dropdown .dropdown-item:focus,
+.searchable-dropdown .dropdown-item.highlighted {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+    outline: none;
+}
+
 /* Kanban Board View styling */
 .kanban-board {
     display: flex;

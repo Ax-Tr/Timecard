@@ -391,7 +391,8 @@ try {
                                         id="clockOutBtn" 
                                         class="btn btn-danger fw-semibold px-4 py-2 hover-lift"
                                         data-elapsed="<?php echo (int)$active_session['seconds_elapsed']; ?>"
-                                        data-required="<?php echo MIN_SHIFT_SECONDS; ?>"
+                                        data-required="32400"
+                                        data-remaining="<?php echo $remaining_seconds; ?>"
                                         <?php if ($remaining_seconds > 0): ?>
                                             disabled 
                                         <?php endif; ?>>
@@ -816,7 +817,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (clockOutBtn) {
         let elapsed = parseInt(clockOutBtn.getAttribute('data-elapsed'), 10) || 0;
-        const required = parseInt(clockOutBtn.getAttribute('data-required'), 10) || 120;
+        let remaining = parseInt(clockOutBtn.getAttribute('data-remaining'), 10) || 0;
+        const required = parseInt(clockOutBtn.getAttribute('data-required'), 10) || 32400;
 
         function formatDuration(totalSeconds) {
             const hrs = Math.floor(totalSeconds / 3600);
@@ -835,11 +837,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const mins = Math.floor((seconds % 3600) / 60);
             const secs = seconds % 60;
             if (hrs > 0) {
-                return `${hrs}h ${mins}m remaining`;
+                return `${hrs}h ${mins}m ${secs}s`;
             } else if (mins > 0) {
-                return `${mins}m ${secs}s remaining`;
+                return `${mins}m ${secs}s`;
             } else {
-                return `${secs}s remaining`;
+                return `${secs}s`;
             }
         }
 
@@ -849,18 +851,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 liveWorkedTime.textContent = formatDuration(elapsed);
             }
 
-            // Calculate progress percentage
+            // Calculate progress percentage based on 9 hours target
             const pct = Math.min((elapsed / required) * 100, 100);
             if (shiftProgressBar) {
                 shiftProgressBar.style.width = pct.toFixed(1) + '%';
                 shiftProgressBar.setAttribute('aria-valuenow', Math.round(pct));
+                if (elapsed >= required) {
+                    shiftProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                } else {
+                    if (!shiftProgressBar.classList.contains('progress-bar-striped')) {
+                        shiftProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+                    }
+                }
             }
 
-            // Update remaining label
-            const remaining = required - elapsed;
+            // Update remaining lock label on the button
             if (remaining > 0) {
                 clockOutBtn.setAttribute('disabled', 'true');
-                
                 const timeStr = formatRemaining(remaining);
                 if (clockOutText) {
                     clockOutText.textContent = `Clock Out (Lock: ${timeStr})`;
@@ -869,9 +876,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 clockOutBtn.removeAttribute('disabled');
                 if (clockOutText) {
                     clockOutText.textContent = 'Clock Out';
-                }
-                if (shiftProgressBar) {
-                    shiftProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
                 }
             }
         }
@@ -882,6 +886,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Tick every second
         const timerInterval = setInterval(() => {
             elapsed++;
+            if (remaining > 0) {
+                remaining--;
+            }
             updateUI();
         }, 1000);
     }

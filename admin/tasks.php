@@ -193,7 +193,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     echo e($selected_label);
                                 ?>
                             </button>
-                            <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                            <div class="dropdown-menu p-2" style="max-height: 300px; overflow-y: auto;">
                                 <input type="text" class="form-control mb-2 dropdown-search-input" placeholder="Type to search..." autocomplete="off">
                                 <div class="dropdown-options-list">
                                     <button type="button" class="dropdown-item text-start<?php echo $emp_filter == 0 ? ' active' : ''; ?>" data-value="0">All Employees</button>

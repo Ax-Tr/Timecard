@@ -111,6 +111,14 @@ body {
 
 .searchable-dropdown .dropdown-menu {
     border-color: var(--bs-border-color);
+    min-width: 100%;
+    width: max-content;
+    max-width: 380px;
+}
+
+.searchable-dropdown .dropdown-item {
+    white-space: normal;
+    word-break: break-word;
 }
 
 /* Kanban Board View styling */

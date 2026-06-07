@@ -55,13 +55,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     
     $output = fopen('php://output', 'w');
     // Header columns
-    fputcsv($output, ['Employee ID', 'Name', 'Email Address', 'Date', 'Clock In', 'Clock Out', 'Duration (Hours)', 'Status']);
+    fputcsv($output, ['Employee ID', 'Name', 'Email Address', 'Date', 'Clock In', 'Clock Out', 'Duration (Decimal Hours)', 'Duration (Formatted)', 'Status']);
     
     foreach ($attendance_logs as $log) {
         $name = $log['first_name'] . ' ' . $log['last_name'];
         $clock_in = date('Y-m-d h:i A', strtotime($log['clock_in']));
         $clock_out = $log['clock_out'] ? date('Y-m-d h:i A', strtotime($log['clock_out'])) : 'N/A';
         $duration = $log['duration'] !== null ? number_format($log['duration'], 2) : '0.00';
+        $duration_formatted = $log['clock_out'] ? format_worked_duration($log['clock_in'], $log['clock_out']) : '-';
         $status = $log['clock_out'] ? 'Completed' : 'Currently Clocked In';
         
         fputcsv($output, [
@@ -72,6 +73,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $clock_in,
             $clock_out,
             $duration,
+            $duration_formatted,
             $status
         ]);
     }
@@ -123,7 +125,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     echo e($selected_label);
                                 ?>
                             </button>
-                            <div class="dropdown-menu w-100 p-2" style="max-height: 300px; overflow-y: auto;">
+                            <div class="dropdown-menu p-2" style="max-height: 300px; overflow-y: auto;">
                                 <input type="text" class="form-control mb-2 dropdown-search-input" placeholder="Type to search..." autocomplete="off">
                                 <div class="dropdown-options-list">
                                     <button type="button" class="dropdown-item text-start<?php echo $selected_user_id == 0 ? ' active' : ''; ?>" data-value="0">All Employees</button>

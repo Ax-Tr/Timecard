@@ -66,6 +66,17 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     FOREIGN KEY (user_id) REFERENCES employees(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    date DATE NOT NULL,
+    clock_in DATETIME NOT NULL,
+    clock_out DATETIME DEFAULT NULL,
+    duration DECIMAL(5,2) DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES employees(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 -- Seed Admin User (Password: Ags@2026)
 INSERT INTO employees (emp_id, password, role, first_name, last_name, email, phone, status) VALUES
 ('Admin', '$2y$10$0ut6oOrn4JYqnl4HXU81/.Nqzv3KIG2p6LLiEPb84gJYPy74iE6oG', 'admin', 'Admin', 'Admin', 'admin@rhine.com', NULL, 'active');

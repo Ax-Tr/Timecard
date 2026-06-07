@@ -1,16 +1,126 @@
 <?php
 // Employee Dashboard
-$page_title = 'Employee Dashboard';
-require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Secure page access
+require_login();
 if (is_admin()) {
     header("Location: " . APP_ROOT . "admin/dashboard");
     exit;
 }
 
 $user_id = $_SESSION['user_id'];
-$error = '';
+$error = $_SESSION['attendance_error'] ?? '';
+$success = $_SESSION['attendance_success'] ?? '';
+unset($_SESSION['attendance_error'], $_SESSION['attendance_success']);
+
+// Handle Clock-in / Clock-out POST Actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['attendance_action'])) {
+    $attendance_act = $_POST['attendance_action'];
+    $token = $_POST['csrf_token'] ?? '';
+
+    if (!verify_csrf($token)) {
+        $_SESSION['attendance_error'] = 'Invalid CSRF security token.';
+    } else {
+        try {
+            // Check active session with elapsed seconds computed natively by the database timezone
+            $chk_stmt = $pdo->prepare("SELECT *, TIMESTAMPDIFF(SECOND, clock_in, NOW()) as seconds_elapsed FROM attendance WHERE user_id = ? AND clock_out IS NULL LIMIT 1");
+            $chk_stmt->execute([$user_id]);
+            $current_session = $chk_stmt->fetch();
+
+            if ($attendance_act === 'clock_in') {
+                if ($current_session) {
+                    $_SESSION['attendance_error'] = 'You are already clocked in.';
+                } else {
+                    // Rule 2: Check if employee has already clocked out today
+                    $today_done_stmt = $pdo->prepare("SELECT * FROM attendance WHERE user_id = ? AND date = CURDATE() AND clock_out IS NOT NULL LIMIT 1");
+                    $today_done_stmt->execute([$user_id]);
+                    $today_done = $today_done_stmt->fetch();
+
+                    if ($today_done) {
+                        $_SESSION['attendance_error'] = 'Warning: You have already completed your attendance logging for today. You cannot clock in again today.';
+                    } else {
+                        $ins_stmt = $pdo->prepare("INSERT INTO attendance (user_id, date, clock_in) VALUES (?, CURDATE(), NOW())");
+                        $ins_stmt->execute([$user_id]);
+                        log_activity($user_id, "Clocked in");
+                        $_SESSION['attendance_success'] = 'Successfully clocked in!';
+                    }
+                }
+            } elseif ($attendance_act === 'clock_out') {
+                if (!$current_session) {
+                    $_SESSION['attendance_error'] = 'You are not clocked in.';
+                } else {
+                    // Rule 1: Prevent clocking out early (require minimum shift duration)
+                    $diff_seconds = (int)$current_session['seconds_elapsed'];
+                    
+                    if ($diff_seconds < MIN_SHIFT_SECONDS) {
+                        $remaining = MIN_SHIFT_SECONDS - $diff_seconds;
+                        $remaining_text = "";
+                        if ($remaining >= 3600) {
+                            $hours = floor($remaining / 3600);
+                            $minutes = floor(($remaining % 3600) / 60);
+                            $remaining_text = "{$hours}h {$minutes}m";
+                        } elseif ($remaining >= 60) {
+                            $minutes = floor($remaining / 60);
+                            $remaining_text = "{$minutes}m";
+                        } else {
+                            $remaining_text = "{$remaining}s";
+                        }
+                        $_SESSION['attendance_error'] = "Warning: You cannot clock out early. Required shift duration is not met (remaining: {$remaining_text}).";
+                    } else {
+                        $upd_stmt = $pdo->prepare("
+                            UPDATE attendance 
+                            SET clock_out = NOW(), 
+                                duration = ROUND(TIMESTAMPDIFF(SECOND, clock_in, NOW()) / 3600.0, 2) 
+                            WHERE id = ?
+                        ");
+                        $upd_stmt->execute([$current_session['id']]);
+                        
+                        // Fetch the updated record to get duration
+                        $dur_stmt = $pdo->prepare("SELECT duration FROM attendance WHERE id = ?");
+                        $dur_stmt->execute([$current_session['id']]);
+                        $duration = $dur_stmt->fetchColumn();
+
+                        log_activity($user_id, "Clocked out. Duration: " . number_format($duration, 2) . " hrs");
+                        $_SESSION['attendance_success'] = 'Successfully clocked out! Worked ' . number_format($duration, 2) . ' hours.';
+                    }
+                }
+            }
+        } catch (PDOException $e) {
+            $_SESSION['attendance_error'] = 'Attendance logging error: ' . $e->getMessage();
+        }
+    }
+
+    // Redirect to prevent duplicate form submissions on page refresh
+    header("Location: " . APP_ROOT . "employee/dashboard");
+    exit;
+}
+
+// Fetch active clock-in session
+$active_session = null;
+try {
+    $session_stmt = $pdo->prepare("SELECT *, TIMESTAMPDIFF(SECOND, clock_in, NOW()) as seconds_elapsed FROM attendance WHERE user_id = ? AND clock_out IS NULL LIMIT 1");
+    $session_stmt->execute([$user_id]);
+    $active_session = $session_stmt->fetch();
+} catch (PDOException $e) {
+    error_log("Failed to fetch active attendance session: " . $e->getMessage());
+}
+
+// Check if already completed attendance session today
+$completed_today = null;
+try {
+    $comp_stmt = $pdo->prepare("SELECT * FROM attendance WHERE user_id = ? AND date = CURDATE() AND clock_out IS NOT NULL LIMIT 1");
+    $comp_stmt->execute([$user_id]);
+    $completed_today = $comp_stmt->fetch();
+} catch (PDOException $e) {
+    error_log("Failed to fetch completed attendance session: " . $e->getMessage());
+}
+
+// Now include header after POST and redirect logic has executed successfully
+$page_title = 'Employee Dashboard';
+require_once __DIR__ . '/../includes/header.php';
+
 
 $display_name = $_SESSION['username'];
 if (isset($_SESSION['full_name'])) {
@@ -173,6 +283,17 @@ try {
         $weeks[] = $current_week;
     }
 
+    // 9. Fetch Recent Attendance Logs (Last 5)
+    $recent_attendance_stmt = $pdo->prepare("
+        SELECT * 
+        FROM attendance 
+        WHERE user_id = ? 
+        ORDER BY date DESC, clock_in DESC 
+        LIMIT 5
+    ");
+    $recent_attendance_stmt->execute([$user_id]);
+    $recent_attendance = $recent_attendance_stmt->fetchAll();
+
 } catch (PDOException $e) {
     error_log("Employee dashboard error: " . $e->getMessage());
     $error = "Error loading dashboard metrics.";
@@ -198,6 +319,97 @@ try {
         <?php if (!empty($error)): ?>
             <div class="alert alert-danger py-2 small"><?php echo e($error); ?></div>
         <?php endif; ?>
+        <?php if (!empty($success)): ?>
+            <div class="alert alert-success py-2 small"><?php echo e($success); ?></div>
+        <?php endif; ?>
+
+        <!-- Clock In/Out Widget -->
+        <div class="card shadow-sm border-0 mb-4 bg-body-tertiary">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-3 rounded-circle <?php 
+                        if ($active_session) {
+                            echo 'bg-success bg-opacity-10 text-success';
+                        } elseif ($completed_today) {
+                            echo 'bg-info bg-opacity-10 text-info';
+                        } else {
+                            echo 'bg-secondary bg-opacity-10 text-secondary';
+                        }
+                    ?>">
+                        <i class="bi <?php 
+                            if ($active_session) {
+                                echo 'bi-clock-fill';
+                            } elseif ($completed_today) {
+                                echo 'bi-calendar-check-fill';
+                            } else {
+                                echo 'bi-clock-history';
+                            }
+                        ?> fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-1 fw-bold">Daily Attendance Tracker</h5>
+                        <?php if ($active_session): ?>
+                            <p class="text-success mb-1 small fw-semibold">
+                                <i class="bi bi-check-circle-fill me-1"></i> Clocked-in at <strong><?php echo date('h:i A', strtotime($active_session['clock_in'])); ?></strong>
+                            </p>
+                            <!-- Live Shift duration and progress bar -->
+                            <div class="mt-2" style="min-width: 280px; max-width: 350px;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small" style="font-size: 0.75rem;">Shift Progress:</span>
+                                    <span id="liveWorkedTime" class="badge bg-success-subtle text-success fw-bold font-monospace">00:00:00</span>
+                                </div>
+                                <div class="progress shadow-sm" style="height: 8px; border-radius: 4px; background-color: var(--bs-border-color);">
+                                    <div id="shiftProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <small id="shiftProgressLabel" class="text-muted mt-1 d-block" style="font-size: 0.72rem;"></small>
+                            </div>
+                        <?php elseif ($completed_today): ?>
+                            <p class="text-info mb-0 small">
+                                <i class="bi bi-award-fill me-1"></i> Shift completed today! Clocked in at <strong><?php echo date('h:i A', strtotime($completed_today['clock_in'])); ?></strong> and clocked out at <strong><?php echo date('h:i A', strtotime($completed_today['clock_out'])); ?></strong> (worked <strong><?php echo number_format($completed_today['duration'], 2); ?></strong> hrs).
+                            </p>
+                        <?php else: ?>
+                            <p class="text-muted mb-0 small">You are currently clocked out. Don't forget to clock in!</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div>
+                    <?php if ($completed_today): ?>
+                        <button class="btn btn-secondary fw-semibold px-4 py-2" disabled>
+                            <i class="bi bi-check-lg me-1"></i> Shift Completed
+                        </button>
+                    <?php else: ?>
+                        <form method="POST" action="" class="m-0">
+                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                            <?php if ($active_session): ?>
+                                <?php 
+                                    $remaining_seconds = MIN_SHIFT_SECONDS - (int)$active_session['seconds_elapsed'];
+                                    if ($remaining_seconds < 0) {
+                                        $remaining_seconds = 0;
+                                    }
+                                ?>
+                                <input type="hidden" name="attendance_action" value="clock_out">
+                                <button type="submit" 
+                                        id="clockOutBtn" 
+                                        class="btn btn-danger fw-semibold px-4 py-2 hover-lift"
+                                        data-elapsed="<?php echo (int)$active_session['seconds_elapsed']; ?>"
+                                        data-required="<?php echo MIN_SHIFT_SECONDS; ?>"
+                                        <?php if ($remaining_seconds > 0): ?>
+                                            disabled 
+                                        <?php endif; ?>>
+                                    <i class="bi bi-box-arrow-right me-1"></i> 
+                                    <span id="clockOutText">Clock Out</span>
+                                </button>
+                            <?php else: ?>
+                                <input type="hidden" name="attendance_action" value="clock_in">
+                                <button type="submit" class="btn btn-success fw-semibold px-4 py-2 hover-lift">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i> Clock In
+                                </button>
+                            <?php endif; ?>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <!-- KPI Cards Row -->
         <div class="row g-3 mb-4">
@@ -368,6 +580,66 @@ try {
             </div>
         </div>
 
+        <!-- Recent Attendance Logs -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 fw-bold text-primary"><i class="bi bi-calendar-check-fill me-1"></i> Your Recent Attendance History</h6>
+                        <span class="badge bg-success-subtle text-success small fw-semibold">Last 5 Shifts</span>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($recent_attendance)): ?>
+                            <p class="text-muted text-center py-4 mb-0">No attendance logs found.</p>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Clock In</th>
+                                            <th>Clock Out</th>
+                                            <th>Shift Duration</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($recent_attendance as $log): ?>
+                                            <tr>
+                                                <td><span class="fw-semibold text-dark"><?php echo date('D, M d, Y', strtotime($log['date'])); ?></span></td>
+                                                <td><span class="text-success fw-semibold"><i class="bi bi-box-arrow-in-right me-1"></i><?php echo date('h:i A', strtotime($log['clock_in'])); ?></span></td>
+                                                <td>
+                                                    <?php if ($log['clock_out']): ?>
+                                                        <span class="text-danger fw-semibold"><i class="bi bi-box-arrow-right me-1"></i><?php echo date('h:i A', strtotime($log['clock_out'])); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-warning-subtle text-warning">Active Shift</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($log['duration'] !== null): ?>
+                                                        <span class="badge bg-primary-subtle text-primary font-monospace fs-7"><?php echo number_format($log['duration'], 2); ?> hrs</span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted small">-</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($log['clock_out']): ?>
+                                                        <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle-fill me-1"></i>Completed</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-primary-subtle text-primary progress-bar-striped progress-bar-animated"><i class="bi bi-play-fill me-1"></i>Active</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Heatmap Section -->
         <div class="row mt-4">
             <div class="col-12">
@@ -424,8 +696,49 @@ try {
 
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Canvas Confetti CDN -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 <script>
+<?php if (!empty($success)): ?>
+    <?php if (strpos(strtolower($success), 'clocked out') !== false): ?>
+        window.triggerConfetti = true;
+    <?php elseif (strpos(strtolower($success), 'clocked in') !== false): ?>
+        window.triggerClockInConfetti = true;
+    <?php endif; ?>
+<?php endif; ?>
+
 document.addEventListener('DOMContentLoaded', function () {
+    // Blast ribbons if clock-out succeeded!
+    if (window.triggerConfetti) {
+        // Center burst
+        confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 }
+        });
+        // Dual side-cannons 250ms later
+        setTimeout(() => {
+            confetti({
+                particleCount: 80,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0, y: 0.8 }
+            });
+            confetti({
+                particleCount: 80,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1, y: 0.8 }
+            });
+        }, 250);
+    } else if (window.triggerClockInConfetti) {
+        // Energetic clock-in burst
+        confetti({
+            particleCount: 70,
+            spread: 50,
+            origin: { y: 0.7 }
+        });
+    }
     // 1. Weekly hours line chart
     const weeklyCtx = document.getElementById('weeklyHoursChart');
     if (weeklyCtx) {
@@ -494,6 +807,94 @@ document.addEventListener('DOMContentLoaded', function () {
                 cutout: '70%'
             }
         });
+    }
+
+    // 3. Dynamic Clock Out countdown timer & live work progress
+    const clockOutBtn = document.getElementById('clockOutBtn');
+    const clockOutText = document.getElementById('clockOutText');
+    const liveWorkedTime = document.getElementById('liveWorkedTime');
+    const shiftProgressBar = document.getElementById('shiftProgressBar');
+    const shiftProgressLabel = document.getElementById('shiftProgressLabel');
+
+    if (clockOutBtn) {
+        let elapsed = parseInt(clockOutBtn.getAttribute('data-elapsed'), 10) || 0;
+        const required = parseInt(clockOutBtn.getAttribute('data-required'), 10) || 120;
+
+        function formatDuration(totalSeconds) {
+            const hrs = Math.floor(totalSeconds / 3600);
+            const mins = Math.floor((totalSeconds % 3600) / 60);
+            const secs = totalSeconds % 60;
+            return [
+                hrs.toString().padStart(2, '0'),
+                mins.toString().padStart(2, '0'),
+                secs.toString().padStart(2, '0')
+            ].join(':');
+        }
+
+        function formatRemaining(seconds) {
+            if (seconds <= 0) return '';
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hrs > 0) {
+                return `${hrs}h ${mins}m remaining`;
+            } else if (mins > 0) {
+                return `${mins}m ${secs}s remaining`;
+            } else {
+                return `${secs}s remaining`;
+            }
+        }
+
+        function updateUI() {
+            // Update live elapsed timer
+            if (liveWorkedTime) {
+                liveWorkedTime.textContent = formatDuration(elapsed);
+            }
+
+            // Calculate progress percentage
+            const pct = Math.min((elapsed / required) * 100, 100);
+            if (shiftProgressBar) {
+                shiftProgressBar.style.width = pct.toFixed(1) + '%';
+                shiftProgressBar.setAttribute('aria-valuenow', Math.round(pct));
+            }
+
+            // Update remaining label
+            const remaining = required - elapsed;
+            if (remaining > 0) {
+                clockOutBtn.setAttribute('disabled', 'true');
+                
+                const timeStr = formatRemaining(remaining);
+                if (clockOutText) {
+                    clockOutText.textContent = `Clock Out (Lock: ${timeStr})`;
+                }
+                if (shiftProgressLabel) {
+                    const reqHours = (required / 3600).toFixed(1);
+                    const remHours = (remaining / 3600).toFixed(2);
+                    shiftProgressLabel.textContent = `${remHours} hrs remaining of ${reqHours} hrs shift.`;
+                }
+            } else {
+                clockOutBtn.removeAttribute('disabled');
+                if (clockOutText) {
+                    clockOutText.textContent = 'Clock Out';
+                }
+                if (shiftProgressLabel) {
+                    const reqHours = (required / 3600).toFixed(1);
+                    shiftProgressLabel.textContent = `Required shift of ${reqHours} hrs completed. You can clock out!`;
+                }
+                if (shiftProgressBar) {
+                    shiftProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                }
+            }
+        }
+
+        // Run immediately
+        updateUI();
+
+        // Tick every second
+        const timerInterval = setInterval(() => {
+            elapsed++;
+            updateUI();
+        }, 1000);
     }
 });
 </script>

@@ -17,6 +17,13 @@
 
     <!-- Bootstrap 5 Bundle JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- App Configuration for Client-Side optimization -->
+    <script>
+        window.appConfig = {
+            isLoggedIn: <?php echo is_logged_in() ? 'true' : 'false'; ?>,
+            isAdmin: <?php echo is_admin() ? 'true' : 'false'; ?>
+        };
+    </script>
     <!-- Custom Main JS -->
     <script src="<?php echo APP_ROOT; ?>assets/js/main.js"></script>
 </body>

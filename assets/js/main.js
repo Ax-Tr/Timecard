@@ -442,8 +442,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (notificationBellIcon) {
         let lastCount = parseInt(notificationBadge ? notificationBadge.textContent.trim() : '0') || 0;
 
-        // Poll notifications every 5 seconds
-        setInterval(pollNotifications, 5000);
+        // Optimize: Only poll in the background for administrators (saves server hits)
+        // Also increase interval from 5s to 60s to protect free hosting daily request quotas
+        if (window.appConfig && window.appConfig.isAdmin) {
+            setInterval(pollNotifications, 60000);
+        }
 
         function pollNotifications() {
             const appRoot = getAppRootPath();

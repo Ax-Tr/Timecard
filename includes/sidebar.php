@@ -57,6 +57,12 @@ $role = $_SESSION['role'] ?? 'employee';
                     </a>
                 </li>
                 <li class="nav-item mb-1">
+                    <a href="<?php echo APP_ROOT; ?>admin/attendance" class="nav-link text-white d-flex align-items-center py-2 px-3 rounded <?php echo $current_page === 'attendance' ? 'active bg-primary' : 'hover-bg-secondary'; ?>">
+                        <i class="bi bi-stopwatch me-3 fs-5"></i>
+                        <span>Attendance</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
                     <a href="<?php echo APP_ROOT; ?>admin/settings" class="nav-link text-white d-flex align-items-center py-2 px-3 rounded <?php echo $current_page === 'settings' ? 'active bg-primary' : 'hover-bg-secondary'; ?>">
                         <i class="bi bi-gear me-3 fs-5"></i>
                         <span>Settings</span>

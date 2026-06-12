@@ -1,4 +1,4 @@
-# Employee Time Sheet & Task Management System
+# Employee Attendance & Time Sheet & Task Management System
 
 A lightweight, secure, and production-ready corporate web application optimized specifically for shared hosting environments like **ProFreeHost**, **InfinityFree**, or **000webhost**.
 
@@ -32,10 +32,6 @@ A lightweight, secure, and production-ready corporate web application optimized 
 ---
 
 ## Credentials
-
-### Admin Login
-- **Username**: `Admin`
-- **Password**: `Ags@2026`
 
 ### Employee Login
 - **Username**: `EMP101` through `EMP160` (60 seeded employee accounts)
